@@ -36,3 +36,7 @@ dist-ssr
 # Agent directories
 .antigravity/
 .agents/
+
+# Vercel build output
+.vercel/
+
