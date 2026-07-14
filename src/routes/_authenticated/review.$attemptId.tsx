@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { getCorrection } from "@/lib/exam.functions";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 
 export const Route = createFileRoute("/_authenticated/review/$attemptId")({
   component: ReviewPage,
@@ -60,9 +61,9 @@ function ReviewPage() {
                   {q.isCorrect ? t.correction.correct : t.correction.incorrect}
                 </Badge>
               </div>
-              <h2 className="mt-3 text-base font-semibold leading-relaxed text-foreground">
-                {q.text}
-              </h2>
+              <div className="mt-3 text-base font-semibold leading-relaxed text-foreground">
+                <FormattedQuestionText text={q.text} />
+              </div>
 
               <div className="mt-4 space-y-2">
                 {q.options.map((opt) => {

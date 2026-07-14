@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Profiles Collection rules
+    match /profiles/{userId} {
+      allow read, write: if true;
+    }
+
+    // User Roles rules
+    match /user_roles/{roleId} {
+      allow read, write: if true;
+    }
+
+    // Exams rules
+    match /exams/{examId} {
+      allow read, write: if true;
+    }
+
+    // Exam Documents rules
+    match /exam_documents/{docId} {
+      allow read, write: if true;
+    }
+
+    // Questions rules
+    match /questions/{questionId} {
+      allow read, write: if true;
+    }
+
+    // Question Options rules
+    match /question_options/{optionId} {
+      allow read, write: if true;
+    }
+
+    // Question Assets rules
+    match /question_assets/{assetId} {
+      allow read, write: if true;
+    }
+
+    // Question Solutions rules
+    match /question_solutions/{solutionId} {
+      allow read, write: if true;
+    }
+
+    // Attempts rules
+    match /attempts/{attemptId} {
+      allow read, write: if true;
+    }
+
+    // Attempt Answers rules
+    match /attempt_answers/{answerId} {
+      allow read, write: if true;
+    }
+
+    // Attempt Events rules
+    match /attempt_events/{eventId} {
+      allow read, write: if true;
+    }
+
+    // Bookmarks rules
+    match /bookmarks/{bookmarkId} {
+      allow read, write: if true;
+    }
+
+    // Audit Log rules
+    match /audit_log/{logId} {
+      allow read, write: if true;
+    }
+  }
+}

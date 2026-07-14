@@ -53,7 +53,7 @@ export const listDashboard = createServerFn({ method: "GET" })
 // ---------- Start / resume ----------
 export const startAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { examId: string }) => z.object({ examId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { examId: string }) => z.object({ examId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -106,7 +106,7 @@ export const startAttempt = createServerFn({ method: "POST" })
 // ---------- Live attempt state (NO solutions) ----------
 export const getAttemptState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -186,9 +186,9 @@ export const saveAnswer = createServerFn({ method: "POST" })
     }) =>
       z
         .object({
-          attemptId: z.string().uuid(),
-          questionId: z.string().uuid(),
-          selectedOptionIds: z.array(z.string().uuid()),
+          attemptId: z.string(),
+          questionId: z.string(),
+          selectedOptionIds: z.array(z.string()),
           markedForReview: z.boolean(),
         })
         .parse(d),
@@ -236,7 +236,7 @@ export const saveAnswer = createServerFn({ method: "POST" })
 // ---------- Submit ----------
 export const submitAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     const { finalizeAttempt } = await import("@/lib/exam.server");
     await finalizeAttempt(data.attemptId, context.userId, "submitted");
@@ -246,7 +246,7 @@ export const submitAttempt = createServerFn({ method: "POST" })
 // ---------- Results ----------
 export const getResults = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -305,7 +305,7 @@ export const getResults = createServerFn({ method: "GET" })
 // ---------- Secure correction (solutions revealed only post-submit) ----------
 export const getCorrection = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 

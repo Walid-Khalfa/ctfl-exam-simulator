@@ -9,12 +9,39 @@ type SignInOptions = {
   extraParams?: Record<string, string>;
 };
 
+interface MockAuthClient {
+  signInWithOAuth?: (args: {
+    provider: string;
+    options?: { redirectTo?: string };
+  }) => Promise<{ error: unknown }>;
+}
+
 export const lovable = {
   auth: {
     signInWithOAuth: async (
       provider: "google" | "apple" | "microsoft" | "lovable",
       opts?: SignInOptions,
     ) => {
+      // If we are using the Firebase-backed mock client, bypass Lovable's OAuth and call the mock directly.
+      const SUPABASE_URL =
+        import.meta.env.VITE_SUPABASE_URL ||
+        (typeof process !== "undefined" && process.env?.SUPABASE_URL);
+      if (!SUPABASE_URL) {
+        const mockAuth = supabase.auth as MockAuthClient;
+        if (typeof mockAuth.signInWithOAuth === "function") {
+          const { error } = await mockAuth.signInWithOAuth({
+            provider,
+            options: {
+              redirectTo: opts?.redirect_uri || window.location.origin,
+            },
+          });
+          if (error) {
+            return { error: error instanceof Error ? error : new Error(String(error)) };
+          }
+          return { redirected: false, error: null };
+        }
+      }
+
       const result = await lovableAuth.signInWithOAuth(provider, {
         redirect_uri: opts?.redirect_uri,
         extraParams: {

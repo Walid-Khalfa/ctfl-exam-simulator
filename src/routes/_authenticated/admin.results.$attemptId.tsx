@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAttemptReviewAdmin } from "@/lib/admin.functions";
+import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 import { formatSeconds } from "@/lib/format";
 import { t } from "@/lib/i18n";
 
@@ -109,7 +110,9 @@ function AdminAttemptReview() {
                 </Badge>
               )}
             </div>
-            <p className="font-medium text-foreground">{q.text}</p>
+            <div className="font-medium text-foreground">
+              <FormattedQuestionText text={q.text} />
+            </div>
             <ul className="mt-3 space-y-1.5">
               {q.options.map((o) => {
                 const correct = q.correct_option_ids.includes(o.id);

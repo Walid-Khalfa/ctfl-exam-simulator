@@ -320,7 +320,7 @@ export const createExam = createServerFn({ method: "POST" })
 
 export const updateExam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => examConfigSchema.extend({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => examConfigSchema.extend({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { id, ...rest } = data;
@@ -331,7 +331,7 @@ export const updateExam = createServerFn({ method: "POST" })
 
 export const deleteExam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { id: string }) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabase } = context;
@@ -367,9 +367,7 @@ export const deleteExam = createServerFn({ method: "POST" })
 export const setExamStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string; status: "draft" | "published" | "archived" }) =>
-    z
-      .object({ id: z.string().uuid(), status: z.enum(["draft", "published", "archived"]) })
-      .parse(d),
+    z.object({ id: z.string(), status: z.enum(["draft", "published", "archived"]) }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
@@ -412,7 +410,7 @@ export const setExamStatus = createServerFn({ method: "POST" })
 
 export const duplicateExam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { id: string }) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabase, userId } = context;
@@ -479,7 +477,7 @@ export const duplicateExam = createServerFn({ method: "POST" })
 // ---------- Exam editor: full read incl. solutions (admin-only) ----------
 export const getExamAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { id: string }) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabase } = context;
@@ -622,8 +620,8 @@ async function examChecklist(context: Ctx, examId: string) {
 
 // ---------- Question upsert (question + options + solution) ----------
 const questionSchema = z.object({
-  id: z.string().uuid().optional(),
-  examId: z.string().uuid(),
+  id: z.string().optional(),
+  examId: z.string(),
   position: z.number().int().min(1),
   text: z.string().max(4000),
   type: z.enum(["single", "multi"]),
@@ -633,7 +631,7 @@ const questionSchema = z.object({
   k_level: z.enum(["K1", "K2", "K3"]),
   learning_objective: z.string().max(200),
   source_page: z.number().int().nullable().optional(),
-  source_document_id: z.string().uuid().nullable().optional(),
+  source_document_id: z.string().nullable().optional(),
   validation_status: z.enum(["draft", "validated"]),
   explanation: z.string().max(4000),
   options: z
@@ -718,7 +716,7 @@ export const upsertQuestion = createServerFn({ method: "POST" })
 
 export const deleteQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { id: string }) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { error } = await context.supabase.from("questions").delete().eq("id", data.id);
@@ -732,7 +730,7 @@ export const recordDocument = createServerFn({ method: "POST" })
   .inputValidator((d: { examId: string; kind: "questions" | "answers"; storagePath: string }) =>
     z
       .object({
-        examId: z.string().uuid(),
+        examId: z.string(),
         kind: z.enum(["questions", "answers"]),
         storagePath: z.string().min(1),
       })
@@ -755,7 +753,7 @@ export const extractDraftQuestions = createServerFn({ method: "POST" })
   .inputValidator((d: { examId: string; questionsPath: string; answersPath?: string | null }) =>
     z
       .object({
-        examId: z.string().uuid(),
+        examId: z.string(),
         questionsPath: z.string().min(1),
         answersPath: z.string().nullable().optional(),
       })
@@ -775,7 +773,7 @@ export const extractDraftQuestions = createServerFn({ method: "POST" })
 // ---------- Reset extracted drafts and re-run extraction ----------
 export const resetAndReExtract = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { examId: string }) => z.object({ examId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { examId: string }) => z.object({ examId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabase } = context;
@@ -817,7 +815,7 @@ export const resetAndReExtract = createServerFn({ method: "POST" })
 // ---------- Bulk validation: validate questions with no warnings ----------
 export const bulkValidateClean = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { examId: string }) => z.object({ examId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { examId: string }) => z.object({ examId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabase } = context;
@@ -920,7 +918,7 @@ export const listStudentResults = createServerFn({ method: "GET" })
 // ---------- Admin: full attempt review (with solutions) ----------
 export const getAttemptReviewAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string().uuid() }).parse(d))
+  .inputValidator((d: { attemptId: string }) => z.object({ attemptId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     const { supabase } = context;

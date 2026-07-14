@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { QuestionEditor, type EditableQuestion } from "@/components/admin/QuestionEditor";
 import { PdfImport } from "@/components/admin/PdfImport";
 import { ExamConfigForm } from "@/components/admin/ExamConfigForm";
+import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 import { getExamAdmin, updateExam, deleteQuestion, bulkValidateClean } from "@/lib/admin.functions";
 import { t } from "@/lib/i18n";
 import { toast } from "sonner";
@@ -453,7 +454,9 @@ function ExamPreview({ questions }: { questions: QuestionPreviewType }) {
               {q.type === "multi" ? t.admin.question.multi : t.admin.question.single}
             </span>
           </div>
-          <p className="font-medium text-foreground">{q.text}</p>
+          <div className="font-medium text-foreground">
+            <FormattedQuestionText text={q.text} />
+          </div>
           <ul className="mt-3 space-y-1.5">
             {q.options.map((o) => {
               const correct = q.correct_option_ids.includes(o.id);

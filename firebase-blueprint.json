@@ -1,0 +1,166 @@
+{
+  "projectId": "shining-unison-j7c1c",
+  "collections": {
+    "profiles": {
+      "description": "User profile information",
+      "fields": {
+        "id": "string (User ID)",
+        "full_name": "string",
+        "locale": "string (default: 'fr')",
+        "created_at": "timestamp",
+        "updated_at": "timestamp"
+      }
+    },
+    "user_roles": {
+      "description": "User access control roles",
+      "fields": {
+        "id": "string",
+        "user_id": "string",
+        "role": "string ('admin' | 'student')",
+        "created_at": "timestamp"
+      }
+    },
+    "exams": {
+      "description": "CTFL Exam definitions",
+      "fields": {
+        "id": "string",
+        "title": "string",
+        "description": "string",
+        "language": "string",
+        "duration_minutes": "number",
+        "total_questions": "number",
+        "passing_threshold": "number",
+        "points_per_question": "number",
+        "attempts_allowed": "number | null",
+        "status": "string ('draft' | 'published')",
+        "created_by": "string | null",
+        "created_at": "timestamp",
+        "updated_at": "timestamp"
+      }
+    },
+    "exam_documents": {
+      "description": "Uploaded exam syllabus or PDF documents",
+      "fields": {
+        "id": "string",
+        "exam_id": "string",
+        "kind": "string ('questions' | 'answers')",
+        "storage_path": "string",
+        "page_count": "number",
+        "created_at": "timestamp"
+      }
+    },
+    "questions": {
+      "description": "Exam questions",
+      "fields": {
+        "id": "string",
+        "exam_id": "string",
+        "position": "number",
+        "text": "string",
+        "type": "string ('single' | 'multi')",
+        "points": "number",
+        "k_level": "string ('K1' | 'K2' | 'K3')",
+        "chapter": "number",
+        "learning_objective": "string",
+        "source_page": "number | null",
+        "created_at": "timestamp",
+        "updated_at": "timestamp"
+      }
+    },
+    "question_options": {
+      "description": "Options/choices for each question",
+      "fields": {
+        "id": "string",
+        "question_id": "string",
+        "position": "number",
+        "label": "string ('A' | 'B' | 'C' | 'D')",
+        "text": "string",
+        "created_at": "timestamp"
+      }
+    },
+    "question_assets": {
+      "description": "Assets linked to questions (e.g. diagrams, tables)",
+      "fields": {
+        "id": "string",
+        "question_id": "string",
+        "kind": "string ('image' | 'table')",
+        "storage_path": "string",
+        "caption": "string",
+        "position": "number",
+        "created_at": "timestamp"
+      }
+    },
+    "question_solutions": {
+      "description": "Correct answers and explanations for questions",
+      "fields": {
+        "question_id": "string",
+        "correct_option_ids": "array of strings",
+        "explanation": "string",
+        "option_rationales": "map/json (mapping option IDs to explanation strings)",
+        "created_at": "timestamp",
+        "updated_at": "timestamp"
+      }
+    },
+    "attempts": {
+      "description": "Exam trial attempts by students",
+      "fields": {
+        "id": "string",
+        "user_id": "string",
+        "exam_id": "string",
+        "status": "string ('in_progress' | 'submitted' | 'expired')",
+        "started_at": "timestamp",
+        "expires_at": "timestamp",
+        "submitted_at": "timestamp | null",
+        "score": "number | null",
+        "max_score": "number | null",
+        "percentage": "number | null",
+        "passed": "boolean | null",
+        "time_used_seconds": "number | null",
+        "created_at": "timestamp"
+      }
+    },
+    "attempt_answers": {
+      "description": "Answers submitted within a trial attempt",
+      "fields": {
+        "id": "string",
+        "attempt_id": "string",
+        "question_id": "string",
+        "selected_option_ids": "array of strings",
+        "marked_for_review": "boolean",
+        "is_correct": "boolean | null",
+        "updated_at": "timestamp"
+      }
+    },
+    "attempt_events": {
+      "description": "Audit-trail events for test sessions (e.g., focus loss)",
+      "fields": {
+        "id": "string",
+        "attempt_id": "string",
+        "type": "string",
+        "payload": "map/json",
+        "created_at": "timestamp"
+      }
+    },
+    "bookmarks": {
+      "description": "Questions bookmarked by students",
+      "fields": {
+        "id": "string",
+        "user_id": "string",
+        "question_id": "string",
+        "created_at": "timestamp"
+      }
+    },
+    "audit_log": {
+      "description": "Administrative audit logs",
+      "fields": {
+        "id": "string",
+        "action": "string",
+        "actor_id": "string | null",
+        "actor_name": "string | null",
+        "details": "map/json",
+        "target_id": "string | null",
+        "target_type": "string | null",
+        "created_at": "timestamp"
+      }
+    }
+  }
+}

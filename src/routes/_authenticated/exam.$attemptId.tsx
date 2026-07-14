@@ -1,7 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clock, Loader2, Check, ChevronLeft, ChevronRight, Flag } from "lucide-react";
+import {
+  Clock,
+  Loader2,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Flag,
+  AlertTriangle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +28,10 @@ import { getAttemptState, saveAnswer, submitAttempt } from "@/lib/exam.functions
 import { formatSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { FormattedQuestionText } from "@/components/FormattedQuestionText";
+import { Calculator } from "@/components/Calculator";
+import { Notepad } from "@/components/Notepad";
+import { Calculator as CalcIcon, FileText as NoteIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/exam/$attemptId")({
   component: ExamPage,
@@ -46,6 +58,9 @@ function ExamPage() {
   const pending = useRef<Record<string, LocalAnswer>>({});
   const warned = useRef<Set<number>>(new Set());
   const submitting = useRef(false);
+
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showNotepad, setShowNotepad] = useState(false);
 
   // Hydrate local state from the server once loaded.
   useEffect(() => {
@@ -219,6 +234,38 @@ function ExamPage() {
             <span className="text-xs text-muted-foreground">
               {saveState === "saving" ? t.exam.saving : saveState === "saved" ? t.exam.saved : ""}
             </span>
+            <div className="flex items-center gap-1 border-r pr-3 mr-1">
+              <Button
+                variant={showCalculator ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  if (!showCalculator && window.innerWidth < 768) {
+                    setShowNotepad(false);
+                  }
+                  setShowCalculator(!showCalculator);
+                }}
+                className="gap-1.5 h-8 px-2.5 rounded-lg text-xs"
+                title="Calculatrice"
+              >
+                <CalcIcon className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden sm:inline">Calculatrice</span>
+              </Button>
+              <Button
+                variant={showNotepad ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  if (!showNotepad && window.innerWidth < 768) {
+                    setShowCalculator(false);
+                  }
+                  setShowNotepad(!showNotepad);
+                }}
+                className="gap-1.5 h-8 px-2.5 rounded-lg text-xs"
+                title="Bloc-notes"
+              >
+                <NoteIcon className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden sm:inline">Bloc-notes</span>
+              </Button>
+            </div>
             <div
               className={cn(
                 "flex items-center gap-2 rounded-lg px-3 py-1.5 font-mono text-sm font-semibold tabular-nums",
@@ -245,7 +292,9 @@ function ExamPage() {
                 {q.type === "multi" ? t.exam.multi : t.exam.single}
               </Badge>
             </div>
-            <h2 className="mt-3 text-lg font-semibold leading-relaxed text-foreground">{q.text}</h2>
+            <div className="mt-3 text-lg font-semibold leading-relaxed text-foreground">
+              <FormattedQuestionText text={q.text} />
+            </div>
 
             <div className="mt-5 space-y-3" role="group" aria-label={t.exam.question}>
               {q.options.map((opt) => {
@@ -312,7 +361,11 @@ function ExamPage() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <SubmitButton onConfirm={() => doSubmit(false)} />
+              <SubmitButton
+                onConfirm={() => doSubmit(false)}
+                questions={questions}
+                answers={answers}
+              />
             )}
           </div>
         </div>
@@ -362,11 +415,34 @@ function ExamPage() {
             </div>
 
             <div className="mt-4 border-t pt-3">
-              <SubmitButton onConfirm={() => doSubmit(false)} fullWidth />
+              <SubmitButton
+                onConfirm={() => doSubmit(false)}
+                questions={questions}
+                answers={answers}
+                fullWidth
+              />
             </div>
           </div>
         </aside>
       </div>
+
+      {/* Floating Utilities */}
+      {showNotepad && (
+        <div className="fixed bottom-4 right-4 z-40 w-full max-w-[340px] md:max-w-[400px] rounded-2xl border bg-card shadow-2xl overflow-hidden transition-all duration-200">
+          <Notepad attemptId={attemptId} onClose={() => setShowNotepad(false)} />
+        </div>
+      )}
+
+      {showCalculator && (
+        <div
+          className={cn(
+            "fixed bottom-4 right-4 z-40 w-full max-w-[340px] md:max-w-[450px] rounded-2xl border bg-card shadow-2xl overflow-hidden transition-all duration-200",
+            showNotepad && "md:right-[424px]",
+          )}
+        >
+          <Calculator onClose={() => setShowCalculator(false)} />
+        </div>
+      )}
     </div>
   );
 }
@@ -380,7 +456,24 @@ function LegendRow({ className, label }: { className: string; label: string }) {
   );
 }
 
-function SubmitButton({ onConfirm, fullWidth }: { onConfirm: () => void; fullWidth?: boolean }) {
+function SubmitButton({
+  onConfirm,
+  fullWidth,
+  questions,
+  answers,
+}: {
+  onConfirm: () => void;
+  fullWidth?: boolean;
+  questions: { id: string }[];
+  answers: Record<string, LocalAnswer>;
+}) {
+  const unansweredIndices = questions
+    .map((question, idx) => ({ id: question.id, num: idx + 1 }))
+    .filter(({ id }) => !answers[id] || (answers[id]?.selected ?? []).length === 0)
+    .map(({ num }) => num);
+
+  const hasUnanswered = unansweredIndices.length > 0;
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -388,8 +481,36 @@ function SubmitButton({ onConfirm, fullWidth }: { onConfirm: () => void; fullWid
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t.exam.submitTitle}</AlertDialogTitle>
-          <AlertDialogDescription>{t.exam.submitBody}</AlertDialogDescription>
+          <AlertDialogTitle
+            className={cn(hasUnanswered && "text-destructive flex items-center gap-2")}
+          >
+            {hasUnanswered && <AlertTriangle className="h-5 w-5 shrink-0" />}
+            {t.exam.submitTitle}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-3 pt-2">
+            {hasUnanswered && (
+              <div className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive border border-destructive/20">
+                <p className="font-bold mb-1">
+                  Attention : Vous n'avez pas répondu à toutes les questions !
+                </p>
+                <p className="mb-2">
+                  Il vous reste <span className="font-semibold">{unansweredIndices.length}</span>{" "}
+                  question(s) sans réponse :
+                </p>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                  {unansweredIndices.map((num) => (
+                    <span
+                      key={num}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-destructive/20 text-xs font-bold text-destructive"
+                    >
+                      {num}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-muted-foreground">{t.exam.submitBody}</p>
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>

@@ -1,0 +1,10 @@
+node_modules
+.output
+.git
+.github
+.lovable
+.wrangler
+README.md
+Dockerfile
+.dockerignore
+npm-debug.log

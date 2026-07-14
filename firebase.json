@@ -1,0 +1,8 @@
+{
+  "firestore": {
+    "databaseId": "ai-studio-ctflexamsimulato-d9957d3a-a60d-4233-8f0c-aa55e49faa16",
+    "rules": "firestore.rules",
+    "edition": "ENTERPRISE",
+    "dataAccessMode": "FIRESTORE_NATIVE"
+  }
+}
