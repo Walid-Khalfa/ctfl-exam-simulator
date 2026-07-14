@@ -35,19 +35,6 @@ function AuthPage() {
     if (!loading && session) navigate({ to: "/dashboard", replace: true });
   }, [loading, session, navigate]);
 
-  const handleGoogle = async () => {
-    const res = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (res.redirected) return;
-    if (res.error) {
-      const errMsg = res.error instanceof Error ? res.error.message : String(res.error);
-      toast.error(`Échec de la connexion Google : ${errMsg}`);
-      console.error("Google Auth Error:", res.error);
-      return;
-    }
-    navigate({ to: "/dashboard", replace: true });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,25 +94,7 @@ function AuthPage() {
           <h1 className="font-display text-2xl font-bold text-foreground">{titles.title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{titles.subtitle}</p>
 
-          {view !== "forgot" && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-6 w-full"
-                onClick={handleGoogle}
-              >
-                {t.auth.googleContinue}
-              </Button>
-              <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
-                {t.common.or}
-                <span className="h-px flex-1 bg-border" />
-              </div>
-            </>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             {view === "signup" && (
               <div className="space-y-1.5">
                 <Label htmlFor="fullName">{t.common.fullName}</Label>
