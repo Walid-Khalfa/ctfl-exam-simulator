@@ -41,7 +41,9 @@ function AuthPage() {
     });
     if (res.redirected) return;
     if (res.error) {
-      toast.error("Échec de la connexion Google.");
+      const errMsg = res.error instanceof Error ? res.error.message : String(res.error);
+      toast.error(`Échec de la connexion Google : ${errMsg}`);
+      console.error("Google Auth Error:", res.error);
       return;
     }
     navigate({ to: "/dashboard", replace: true });
