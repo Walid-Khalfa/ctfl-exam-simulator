@@ -250,7 +250,43 @@ async function ensureSeeded() {
     for (const exam of SEED_EXAMS) {
       const examDocRef = doc(db, "exams", exam.id);
       const snap = await getDoc(examDocRef);
-      if (!snap.exists()) {
+      
+      let needsSeeding = !snap.exists();
+      if (snap.exists()) {
+        try {
+          const qList = SEED_QUESTIONS.filter((q) => q.exam_id === exam.id);
+          const qIds = qList.map((q) => q.id);
+          
+          const qSnap = await getDocs(query(collection(db, "questions"), where("exam_id", "==", exam.id)));
+          const dbQLen = qSnap.size;
+          
+          const optList = SEED_OPTIONS.filter((opt) => qIds.includes(opt.question_id));
+          
+          let lastSolExists = false;
+          let lastOptExists = false;
+          
+          if (qIds.length > 0) {
+            const lastQId = qIds[qIds.length - 1];
+            const lastSolSnap = await getDoc(doc(db, "question_solutions", lastQId));
+            const lastOptSnap = await getDoc(doc(db, "question_options", optList[optList.length - 1].id));
+            lastSolExists = lastSolSnap.exists();
+            lastOptExists = lastOptSnap.exists();
+          }
+          
+          if (dbQLen !== qList.length) {
+            needsSeeding = true;
+          } else if (qIds.length > 0) {
+            if (!lastSolExists || !lastOptExists) {
+              needsSeeding = true;
+            }
+          }
+        } catch (checkErr) {
+          console.warn(`[Firebase] Failed to check integrity for exam ${exam.id}, forcing re-seed:`, checkErr);
+          needsSeeding = true;
+        }
+      }
+
+      if (needsSeeding) {
         console.log(`[Firebase] Seeding exam ${exam.title}...`);
         await setDoc(examDocRef, exam);
 
@@ -843,38 +879,105 @@ class FirebaseQueryBuilder {
         return { data: resValue, count: null };
       }
 
-      const colRef = collection(db, this.table);
-      let q = query(colRef);
+      let results: any[] = [];
+      const inFilter = this.filters.find((f) => f.op === "in");
 
-      for (const filter of this.filters) {
-        if (filter.op === "in") {
-          if (!Array.isArray(filter.val) || filter.val.length === 0) {
-            return { data: [], count: 0 };
+      if (inFilter && Array.isArray(inFilter.val) && inFilter.val.length > 30) {
+        const allVal = inFilter.val;
+        const chunkSize = 30;
+        const promises: Promise<any[]>[] = [];
+
+        for (let i = 0; i < allVal.length; i += chunkSize) {
+          const chunk = allVal.slice(i, i + chunkSize);
+          const colRef = collection(db, this.table);
+          let chunkQ = query(colRef);
+
+          for (const filter of this.filters) {
+            if (filter === inFilter) {
+              chunkQ = query(chunkQ, where(filter.col, "in", chunk));
+            } else if (filter.op === "in") {
+              const otherChunk = Array.isArray(filter.val) ? filter.val.slice(0, 30) : [];
+              chunkQ = query(chunkQ, where(filter.col, "in", otherChunk));
+            } else {
+              chunkQ = query(chunkQ, where(filter.col, "==", filter.val));
+            }
           }
-          const chunks = filter.val.slice(0, 30);
-          q = query(q, where(filter.col, "in", chunks));
-        } else {
-          q = query(q, where(filter.col, "==", filter.val));
+
+          if (this.orderCol) {
+            chunkQ = query(chunkQ, orderBy(this.orderCol, this.orderAsc ? "asc" : "desc"));
+          }
+          if (this.limitCount !== undefined) {
+            chunkQ = query(chunkQ, limit(this.limitCount));
+          }
+
+          promises.push(
+            (async () => {
+              const snap = await getDocs(chunkQ);
+              const chunkResults: any[] = [];
+              snap.forEach((docSnap) => {
+                const d = docSnap.data();
+                chunkResults.push({ id: docSnap.id, ...d });
+              });
+              return chunkResults;
+            })()
+          );
         }
-      }
 
-      if (this.orderCol) {
-        q = query(q, orderBy(this.orderCol, this.orderAsc ? "asc" : "desc"));
-      }
+        const chunksResultsArr = await Promise.all(promises);
+        const seenIds = new Set<string>();
+        for (const resList of chunksResultsArr) {
+          for (const item of resList) {
+            if (!seenIds.has(item.id)) {
+              seenIds.add(item.id);
+              results.push(item);
+            }
+          }
+        }
 
-      if (this.limitCount !== undefined) {
-        q = query(q, limit(this.limitCount));
-      }
+        if (this.orderCol) {
+          results.sort((a, b) => {
+            const valA = a[this.orderCol!];
+            const valB = b[this.orderCol!];
+            if (valA === valB) return 0;
+            const res = valA < valB ? -1 : 1;
+            return this.orderAsc ? res : -res;
+          });
+        }
+        if (this.limitCount !== undefined) {
+          results = results.slice(0, this.limitCount);
+        }
+      } else {
+        const colRef = collection(db, this.table);
+        let q = query(colRef);
 
-      const snap = await getDocs(q);
-      const results: any[] = [];
-      snap.forEach((docSnap) => {
-        const d = docSnap.data();
-        results.push({
-          id: docSnap.id,
-          ...d,
+        for (const filter of this.filters) {
+          if (filter.op === "in") {
+            if (!Array.isArray(filter.val) || filter.val.length === 0) {
+              return { data: [], count: 0 };
+            }
+            const chunks = filter.val.slice(0, 30);
+            q = query(q, where(filter.col, "in", chunks));
+          } else {
+            q = query(q, where(filter.col, "==", filter.val));
+          }
+        }
+
+        if (this.orderCol) {
+          q = query(q, orderBy(this.orderCol, this.orderAsc ? "asc" : "desc"));
+        }
+        if (this.limitCount !== undefined) {
+          q = query(q, limit(this.limitCount));
+        }
+
+        const snap = await getDocs(q);
+        snap.forEach((docSnap) => {
+          const d = docSnap.data();
+          results.push({
+            id: docSnap.id,
+            ...d,
+          });
         });
-      });
+      }
 
       if (this.updateData !== undefined) {
         const result: any[] = [];

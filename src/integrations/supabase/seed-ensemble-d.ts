@@ -1881,13 +1881,6 @@ export const ENSEMBLE_D_SOLUTIONS = [
     },
   },
   {
-    question_id: "ed-q32_alt", // Added to map correctly to option list
-    question_id: "ed-q32",
-    correct_option_ids: ["ed-q32-b"],
-    explanation: "Voir justification ci-dessus.",
-    option_rationales: {},
-  },
-  {
     question_id: "ed-q33",
     correct_option_ids: ["ed-q33-c"],
     explanation:
