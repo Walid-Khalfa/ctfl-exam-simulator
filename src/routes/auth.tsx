@@ -35,7 +35,6 @@ function AuthPage() {
     if (!loading && session) navigate({ to: "/dashboard", replace: true });
   }, [loading, session, navigate]);
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);

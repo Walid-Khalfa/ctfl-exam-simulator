@@ -250,29 +250,33 @@ async function ensureSeeded() {
     for (const exam of SEED_EXAMS) {
       const examDocRef = doc(db, "exams", exam.id);
       const snap = await getDoc(examDocRef);
-      
+
       let needsSeeding = !snap.exists();
       if (snap.exists()) {
         try {
           const qList = SEED_QUESTIONS.filter((q) => q.exam_id === exam.id);
           const qIds = qList.map((q) => q.id);
-          
-          const qSnap = await getDocs(query(collection(db, "questions"), where("exam_id", "==", exam.id)));
+
+          const qSnap = await getDocs(
+            query(collection(db, "questions"), where("exam_id", "==", exam.id)),
+          );
           const dbQLen = qSnap.size;
-          
+
           const optList = SEED_OPTIONS.filter((opt) => qIds.includes(opt.question_id));
-          
+
           let lastSolExists = false;
           let lastOptExists = false;
-          
+
           if (qIds.length > 0) {
             const lastQId = qIds[qIds.length - 1];
             const lastSolSnap = await getDoc(doc(db, "question_solutions", lastQId));
-            const lastOptSnap = await getDoc(doc(db, "question_options", optList[optList.length - 1].id));
+            const lastOptSnap = await getDoc(
+              doc(db, "question_options", optList[optList.length - 1].id),
+            );
             lastSolExists = lastSolSnap.exists();
             lastOptExists = lastOptSnap.exists();
           }
-          
+
           if (dbQLen !== qList.length) {
             needsSeeding = true;
           } else if (qIds.length > 0) {
@@ -281,7 +285,10 @@ async function ensureSeeded() {
             }
           }
         } catch (checkErr) {
-          console.warn(`[Firebase] Failed to check integrity for exam ${exam.id}, forcing re-seed:`, checkErr);
+          console.warn(
+            `[Firebase] Failed to check integrity for exam ${exam.id}, forcing re-seed:`,
+            checkErr,
+          );
           needsSeeding = true;
         }
       }
@@ -919,7 +926,7 @@ class FirebaseQueryBuilder {
                 chunkResults.push({ id: docSnap.id, ...d });
               });
               return chunkResults;
-            })()
+            })(),
           );
         }
 
