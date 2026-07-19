@@ -107,12 +107,7 @@ export const listAuditLog = createServerFn({ method: "GET" })
 export const bootstrapAvailable = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id", { count: "exact", head: true })
-      .eq("role", "admin");
-    return { available: (count ?? 0) === 0 };
+    return { available: false };
   });
 
 // ---------- Admin dashboard stats ----------

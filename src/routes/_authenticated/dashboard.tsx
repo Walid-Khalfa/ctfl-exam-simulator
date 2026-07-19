@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, FileText, Award, Loader2 } from "lucide-react";
@@ -6,7 +5,6 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { listDashboard } from "@/lib/exam.functions";
-import { bootstrapAvailable } from "@/lib/admin.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { t } from "@/lib/i18n";
 
@@ -17,20 +15,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function DashboardPage() {
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
-
-  // First-admin onboarding: when no admin exists yet, route the user to the
-  // dedicated setup page instead of showing the student dashboard.
-  const { data: boot } = useQuery({
-    queryKey: ["bootstrap-available"],
-    queryFn: () => bootstrapAvailable(),
-    enabled: !loading && role !== "admin",
-  });
-
-  useEffect(() => {
-    if (!loading && role !== "admin" && boot?.available) {
-      navigate({ to: "/setup/first-admin", replace: true });
-    }
-  }, [loading, role, boot, navigate]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
