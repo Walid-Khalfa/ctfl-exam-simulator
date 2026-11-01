@@ -4,13 +4,14 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { startAttempt } from "@/lib/exam.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/exam/start/$examId")({
   component: StartExamPage,
 });
 
 function StartExamPage() {
+  const { t, tr } = useLocale();
   const { examId } = Route.useParams();
   const navigate = useNavigate();
   const started = useRef(false);
@@ -23,10 +24,12 @@ function StartExamPage() {
         navigate({ to: "/exam/$attemptId", params: { attemptId: res.attemptId }, replace: true });
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "Impossible de démarrer l'examen.");
+        toast.error(
+          err instanceof Error ? tr(err.message) : tr("Impossible de démarrer l'examen."),
+        );
         navigate({ to: "/dashboard", replace: true });
       });
-  }, [examId, navigate]);
+  }, [examId, navigate, tr]);
 
   return (
     <AppShell>

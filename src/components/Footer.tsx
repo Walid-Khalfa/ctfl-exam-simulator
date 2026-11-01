@@ -1,6 +1,7 @@
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export function Footer() {
+  const { t } = useLocale();
   return (
     <footer className="border-t bg-card/50">
       <div className="mx-auto max-w-6xl px-4 py-8">

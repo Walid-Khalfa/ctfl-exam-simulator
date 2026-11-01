@@ -1,8 +1,10 @@
+import { useLocale } from "@/hooks/useLocale";
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
+  const { tr } = useLocale();
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggle}
-      aria-label={dark ? "Activer le thème clair" : "Activer le thème sombre"}
+      aria-label={dark ? tr("Activer le thème clair") : tr("Activer le thème sombre")}
     >
       {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>

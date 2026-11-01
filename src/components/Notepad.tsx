@@ -1,3 +1,4 @@
+import { useLocale } from "@/hooks/useLocale";
 import { useState, useEffect, useRef } from "react";
 import { X, Copy, Download, Trash2, Check, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ interface NotepadProps {
 }
 
 export function Notepad({ attemptId, onClose }: NotepadProps) {
+  const { tr } = useLocale();
   const storageKey = attemptId ? `exam-notes-${attemptId}` : "exam-notes-general";
   const [notes, setNotes] = useState<string>("");
   const [isCopied, setIsCopied] = useState<boolean>(false);
@@ -51,16 +53,16 @@ export function Notepad({ attemptId, onClose }: NotepadProps) {
     try {
       await navigator.clipboard.writeText(notes);
       setIsCopied(true);
-      toast.success("Notes copiées dans le presse-papiers !");
+      toast.success(tr("Notes copiées dans le presse-papiers !"));
       setTimeout(() => setIsCopied(false), 2000);
     } catch {
-      toast.error("Échec de la copie.");
+      toast.error(tr("Échec de la copie."));
     }
   };
 
   const handleDownload = () => {
     if (!notes.trim()) {
-      toast.error("Le bloc-notes est vide !");
+      toast.error(tr("Le bloc-notes est vide !"));
       return;
     }
     const blob = new Blob([notes], { type: "text/plain;charset=utf-8" });
@@ -70,15 +72,15 @@ export function Notepad({ attemptId, onClose }: NotepadProps) {
     link.download = `notes-examen-${attemptId || "simulation"}.txt`;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success("Notes téléchargées !");
+    toast.success(tr("Notes téléchargées !"));
   };
 
   const handleClear = () => {
     if (!notes.trim()) return;
-    if (confirm("Voulez-vous vraiment effacer toutes vos notes ?")) {
+    if (confirm(tr("Voulez-vous vraiment effacer toutes vos notes ?"))) {
       setNotes("");
       localStorage.setItem(storageKey, "");
-      toast.success("Notes effacées !");
+      toast.success(tr("Notes effacées !"));
     }
   };
 
@@ -88,16 +90,16 @@ export function Notepad({ attemptId, onClose }: NotepadProps) {
       <div className="flex items-center justify-between border-b px-4 py-2.5 bg-muted/40">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold tracking-tight">Bloc-notes</span>
+          <span className="text-sm font-semibold tracking-tight">{tr("Bloc-notes")}</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-mono text-muted-foreground/70 select-none">
-            {isSaving ? "Enregistrement..." : "Enregistré localement"}
+            {isSaving ? tr("Enregistrement...") : tr("Enregistré localement")}
           </span>
           <button
             onClick={onClose}
             className="rounded-lg p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Fermer"
+            aria-label={tr("Fermer")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -109,7 +111,9 @@ export function Notepad({ attemptId, onClose }: NotepadProps) {
         <textarea
           value={notes}
           onChange={handleNotesChange}
-          placeholder="Saisissez vos notes, calculs intermédiaires ou remarques ici... Elles sont enregistrées automatiquement."
+          placeholder={tr(
+            "Saisissez vos notes, calculs intermédiaires ou remarques ici... Elles sont enregistrées automatiquement.",
+          )}
           className="flex-1 w-full min-h-[140px] resize-none rounded-xl border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary font-sans leading-relaxed scrollbar-thin"
         />
 
@@ -119,7 +123,7 @@ export function Notepad({ attemptId, onClose }: NotepadProps) {
             onClick={handleClear}
             disabled={!notes.trim()}
             className="rounded-lg p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-colors"
-            title="Effacer tout"
+            title={tr("Effacer tout")}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -128,27 +132,27 @@ export function Notepad({ attemptId, onClose }: NotepadProps) {
             <button
               onClick={handleCopy}
               className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-muted transition-colors text-foreground"
-              title="Copier les notes"
+              title={tr("Copier les notes")}
             >
               {isCopied ? (
                 <>
                   <Check className="h-3.5 w-3.5 text-green-500" />
-                  <span>Copié</span>
+                  <span>{tr("Copié")}</span>
                 </>
               ) : (
                 <>
                   <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Copier</span>
+                  <span>{tr("Copier")}</span>
                 </>
               )}
             </button>
             <button
               onClick={handleDownload}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-              title="Télécharger en fichier .txt"
+              title={tr("Télécharger en fichier .txt")}
             >
               <Download className="h-3.5 w-3.5" />
-              <span>Télécharger</span>
+              <span>{tr("Télécharger")}</span>
             </button>
           </div>
         </div>

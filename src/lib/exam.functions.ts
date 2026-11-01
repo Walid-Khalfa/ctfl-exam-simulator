@@ -131,7 +131,7 @@ export const getAttemptState = createServerFn({ method: "GET" })
 
     const { data: exam } = await supabase
       .from("exams")
-      .select("id, title, duration_minutes, total_questions, passing_threshold")
+      .select("id, title, language, duration_minutes, total_questions, passing_threshold")
       .eq("id", attempt.exam_id)
       .single();
 

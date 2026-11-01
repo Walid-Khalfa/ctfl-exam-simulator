@@ -14,13 +14,14 @@ import { AdminShell } from "@/components/AdminShell";
 import { Badge } from "@/components/ui/badge";
 import { adminStats } from "@/lib/admin.functions";
 import { formatSeconds } from "@/lib/format";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminDashboard,
 });
 
 function AdminDashboard() {
+  const { t, tr } = useLocale();
   const { data, isLoading } = useQuery({ queryKey: ["admin-stats"], queryFn: () => adminStats() });
 
   return (
@@ -67,7 +68,8 @@ function AdminDashboard() {
                   >
                     <span className="font-medium text-foreground">{e.title}</span>
                     <span className="text-muted-foreground">
-                      {e.attempts} tentatives · {e.avgScore}% · {e.passRate}% réussite
+                      {e.attempts} tentatives · {e.avgScore}% · {e.passRate}
+                      {tr("% réussite")}
                     </span>
                   </div>
                 ))}
@@ -173,5 +175,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Empty() {
+  const { t } = useLocale();
   return <p className="text-sm text-muted-foreground">{t.admin.stats.noData}</p>;
 }

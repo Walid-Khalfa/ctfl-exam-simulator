@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { examLanguage } from "@/lib/locale";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, FileText, Award, Loader2 } from "lucide-react";
@@ -6,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { listDashboard } from "@/lib/exam.functions";
 import { useAuth } from "@/hooks/useAuth";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
+  const { t, tr } = useLocale();
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -20,6 +23,12 @@ function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: () => listDashboard(),
   });
+
+  const [languageFilter, setLanguageFilter] = useState("all");
+  const visibleExams = (data ?? []).filter(
+    (item: Awaited<ReturnType<typeof listDashboard>>[number]) =>
+      languageFilter === "all" || examLanguage(item.exam.language) === languageFilter,
+  );
 
   const name = (user?.user_metadata?.full_name as string) || user?.email?.split("@")[0] || "";
 
@@ -35,6 +44,25 @@ function DashboardPage() {
         </h1>
       </div>
 
+      <div className="mb-6 space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {tr(
+            "Le choix FR/EN traduit l’interface. Les questions et les corrigés restent dans la langue indiquée sur chaque examen.",
+          )}
+        </p>
+        <label className="inline-flex items-center gap-3 text-sm">
+          {tr("Langue de l’examen")}
+          <select
+            value={languageFilter}
+            onChange={(event) => setLanguageFilter(event.target.value)}
+            className="rounded-md border bg-background px-3 py-2 text-foreground"
+          >
+            <option value="all">{tr("Toutes les langues")}</option>
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </div>
       {isLoading ? (
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -44,9 +72,16 @@ function DashboardPage() {
         <div className="rounded-2xl border bg-card p-10 text-center text-muted-foreground">
           {t.dashboard.noExams}
         </div>
+      ) : visibleExams.length === 0 ? (
+        <p
+          role="status"
+          className="rounded-2xl border bg-card p-10 text-center text-muted-foreground"
+        >
+          {tr("Aucun examen dans cette langue.")}
+        </p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
-          {data.map((item) => (
+          {visibleExams.map((item) => (
             <ExamCard key={item.exam.id} item={item} />
           ))}
         </div>
@@ -56,6 +91,7 @@ function DashboardPage() {
 }
 
 function ExamCard({ item }: { item: Awaited<ReturnType<typeof listDashboard>>[number] }) {
+  const { t } = useLocale();
   const { exam, inProgressAttemptId, lastFinishedAttemptId, bestPercentage, attemptsUsed } = item;
 
   return (
@@ -76,6 +112,13 @@ function ExamCard({ item }: { item: Awaited<ReturnType<typeof listDashboard>>[nu
           </Badge>
         )}
       </div>
+      <Badge variant="outline" className="mt-2 w-fit">
+        {examLanguage(exam.language) === "en"
+          ? "English"
+          : examLanguage(exam.language) === "fr"
+            ? "Français"
+            : exam.language}
+      </Badge>
       <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{exam.description}</p>
 
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">

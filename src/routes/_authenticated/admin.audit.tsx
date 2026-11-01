@@ -3,18 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, ScrollText } from "lucide-react";
 import { AdminShell } from "@/components/AdminShell";
 import { listAuditLog } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/admin/audit")({
   component: AdminAudit,
 });
 
-function actionLabel(action: string): string {
-  const map = t.admin.audit.actions as Record<string, string>;
-  return map[action] ?? action;
-}
-
 function AdminAudit() {
+  const { t, dateLocale } = useLocale();
+  function actionLabel(action: string): string {
+    const map = t.admin.audit.actions as Record<string, string>;
+    return map[action] ?? action;
+  }
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin-audit"],
     queryFn: () => listAuditLog(),
@@ -51,7 +52,7 @@ function AdminAudit() {
               {data.map((row) => (
                 <tr key={row.id} className="border-b last:border-0">
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                    {new Date(row.created_at).toLocaleString("fr-FR")}
+                    {new Date(row.created_at).toLocaleString(dateLocale)}
                   </td>
                   <td className="px-4 py-3 font-medium text-foreground">{row.actor_name || "—"}</td>
                   <td className="px-4 py-3 text-foreground">{actionLabel(row.action)}</td>

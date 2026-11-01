@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Trash2, Plus } from "lucide-react";
 import { upsertQuestion } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { toast } from "sonner";
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E"];
@@ -53,6 +53,7 @@ export function QuestionEditor({
   onCancel: () => void;
   onSourcePageChange?: (page: number | null) => void;
 }) {
+  const { t, tr } = useLocale();
   const [form, setForm] = useState<EditableQuestion>(
     question ?? {
       position: nextPosition,
@@ -151,10 +152,10 @@ export function QuestionEditor({
           option_rationales: rationales,
         },
       });
-      toast.success("Question enregistrée");
+      toast.success(tr("Question enregistrée"));
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Erreur"));
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,6 @@
 // Lightweight French-first i18n dictionary for the CTFL Exam Simulator.
-// French is the default and only shipped locale for now; the structure allows
-// adding other locales later without touching component code.
+// French remains the default. English is defined in i18n.en.ts; components
+// obtain the active, request-safe dictionary through useLocale().
 
 export const fr = {
   appName: "CTFL Exam Simulator",
@@ -337,4 +337,3 @@ export const fr = {
 };
 
 export type Dict = typeof fr;
-export const t = fr;

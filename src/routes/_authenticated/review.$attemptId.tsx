@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCorrection } from "@/lib/exam.functions";
 import { cn } from "@/lib/utils";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 
 export const Route = createFileRoute("/_authenticated/review/$attemptId")({
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/_authenticated/review/$attemptId")({
 });
 
 function ReviewPage() {
+  const { t } = useLocale();
   const { attemptId } = Route.useParams();
   const { data, isLoading } = useQuery({
     queryKey: ["correction", attemptId],

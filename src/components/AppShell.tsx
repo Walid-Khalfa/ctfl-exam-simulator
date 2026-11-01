@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { GraduationCap, LogOut, ShieldCheck } from "lucide-react";
@@ -7,9 +8,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
   const { user, role } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -42,6 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               </Button>
             )}
+            <LanguageSwitcher />
             <ThemeToggle />
             {user && (
               <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">

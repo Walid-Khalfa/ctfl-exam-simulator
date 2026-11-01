@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { getAttemptReviewAdmin } from "@/lib/admin.functions";
 import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 import { formatSeconds } from "@/lib/format";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/admin/results/$attemptId")({
   component: AdminAttemptReview,
 });
 
 function AdminAttemptReview() {
+  const { t, dateLocale } = useLocale();
   const { attemptId } = useParams({ from: "/_authenticated/admin/results/$attemptId" });
   const { data, isLoading } = useQuery({
     queryKey: ["admin-attempt", attemptId],
@@ -64,7 +65,7 @@ function AdminAttemptReview() {
           />
           <Stat
             label={t.admin.review.date}
-            value={a.submitted_at ? new Date(a.submitted_at).toLocaleDateString("fr-FR") : "—"}
+            value={a.submitted_at ? new Date(a.submitted_at).toLocaleDateString(dateLocale) : "—"}
           />
         </div>
       </div>

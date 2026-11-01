@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -27,7 +28,7 @@ import {
 import { getAttemptState, saveAnswer, submitAttempt } from "@/lib/exam.functions";
 import { formatSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 import { Calculator } from "@/components/Calculator";
 import { Notepad } from "@/components/Notepad";
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/_authenticated/exam/$attemptId")({
 type LocalAnswer = { selected: string[]; marked: boolean };
 
 function ExamPage() {
+  const { t, tr } = useLocale();
   const { attemptId } = Route.useParams();
   const navigate = useNavigate();
 
@@ -105,10 +107,10 @@ function ExamPage() {
         navigate({ to: "/results/$attemptId", params: { attemptId }, replace: true });
       } catch {
         submitting.current = false;
-        toast.error("Échec de la soumission. Réessayez.");
+        toast.error(tr("Échec de la soumission. Réessayez."));
       }
     },
-    [attemptId, navigate],
+    [attemptId, navigate, t.exam.autoSubmitted, tr],
   );
 
   // Server-authoritative countdown (seeded from server remaining seconds).
@@ -136,7 +138,7 @@ function ExamPage() {
         toast.warning(msg);
       }
     }
-  }, [remaining]);
+  }, [remaining, t.exam.warning15, t.exam.warning5, t.exam.warning1]);
 
   const questions = useMemo(() => data?.questions ?? [], [data?.questions]);
 
@@ -210,7 +212,7 @@ function ExamPage() {
   if (isError) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
-        Une erreur est survenue.
+        {tr("Une erreur est survenue.")}
       </div>
     );
   }
@@ -223,14 +225,19 @@ function ExamPage() {
     <div className="flex min-h-screen flex-col bg-background">
       {/* Fixed distraction-minimal header */}
       <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">{data.exam?.title}</p>
+            <span className="text-xs text-muted-foreground">
+              {t.admin.exam.language}:{" "}
+              {data.exam?.language?.toLowerCase().startsWith("en") ? "English" : "Français"}
+            </span>
             <p className="text-xs text-muted-foreground">
               {answeredCount}/{questions.length} {t.exam.answered.toLowerCase()}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <LanguageSwitcher />
             <span className="text-xs text-muted-foreground">
               {saveState === "saving" ? t.exam.saving : saveState === "saved" ? t.exam.saved : ""}
             </span>
@@ -245,10 +252,10 @@ function ExamPage() {
                   setShowCalculator(!showCalculator);
                 }}
                 className="gap-1.5 h-8 px-2.5 rounded-lg text-xs"
-                title="Calculatrice"
+                title={tr("Calculatrice")}
               >
                 <CalcIcon className="h-3.5 w-3.5 text-primary" />
-                <span className="hidden sm:inline">Calculatrice</span>
+                <span className="hidden sm:inline">{tr("Calculatrice")}</span>
               </Button>
               <Button
                 variant={showNotepad ? "secondary" : "ghost"}
@@ -260,10 +267,10 @@ function ExamPage() {
                   setShowNotepad(!showNotepad);
                 }}
                 className="gap-1.5 h-8 px-2.5 rounded-lg text-xs"
-                title="Bloc-notes"
+                title={tr("Bloc-notes")}
               >
                 <NoteIcon className="h-3.5 w-3.5 text-primary" />
-                <span className="hidden sm:inline">Bloc-notes</span>
+                <span className="hidden sm:inline">{tr("Bloc-notes")}</span>
               </Button>
             </div>
             <div
@@ -293,10 +300,17 @@ function ExamPage() {
               </Badge>
             </div>
             <div className="mt-3 text-lg font-semibold leading-relaxed text-foreground">
-              <FormattedQuestionText text={q.text} />
+              <div lang={data.exam?.language || "fr"}>
+                <FormattedQuestionText text={q.text} />
+              </div>
             </div>
 
-            <div className="mt-5 space-y-3" role="group" aria-label={t.exam.question}>
+            <div
+              className="mt-5 space-y-3"
+              role="group"
+              aria-label={t.exam.question}
+              lang={data.exam?.language || "fr"}
+            >
               {q.options.map((opt) => {
                 const selected = qAnswer.selected.includes(opt.id);
                 return (
@@ -467,6 +481,7 @@ function SubmitButton({
   questions: { id: string }[];
   answers: Record<string, LocalAnswer>;
 }) {
+  const { t, tr } = useLocale();
   const unansweredIndices = questions
     .map((question, idx) => ({ id: question.id, num: idx + 1 }))
     .filter(({ id }) => !answers[id] || (answers[id]?.selected ?? []).length === 0)
@@ -491,11 +506,12 @@ function SubmitButton({
             {hasUnanswered && (
               <div className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive border border-destructive/20">
                 <p className="font-bold mb-1">
-                  Attention : Vous n'avez pas répondu à toutes les questions !
+                  {tr("Attention : Vous n'avez pas répondu à toutes les questions !")}
                 </p>
                 <p className="mb-2">
-                  Il vous reste <span className="font-semibold">{unansweredIndices.length}</span>{" "}
-                  question(s) sans réponse :
+                  {tr("Il vous reste")}{" "}
+                  <span className="font-semibold">{unansweredIndices.length}</span>{" "}
+                  {tr("question(s) sans réponse :")}
                 </p>
                 <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
                   {unansweredIndices.map((num) => (

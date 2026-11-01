@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { bootstrapAvailable, claimInstructorRole } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/setup/first-admin")({
@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/setup/first-admin")({
 });
 
 function FirstAdminSetupPage() {
+  const { t, tr } = useLocale();
   const { role, loading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -59,7 +60,7 @@ function FirstAdminSetupPage() {
         window.location.assign("/admin");
       }, 700);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Erreur"));
       setSubmitting(false);
     }
   };

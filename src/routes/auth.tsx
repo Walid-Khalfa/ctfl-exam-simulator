@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -10,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 const searchSchema = z.object({
   mode: z.enum(["login", "signup", "forgot"]).optional(),
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const { t, tr } = useLocale();
   const { mode } = Route.useSearch();
   const navigate = useNavigate();
   const { session, loading } = useAuth();
@@ -64,7 +66,7 @@ function AuthPage() {
       if (error) throw error;
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue.");
+      toast.error(err instanceof Error ? tr(err.message) : tr("Une erreur est survenue."));
     } finally {
       setBusy(false);
     }
@@ -85,7 +87,10 @@ function AuthPage() {
           </span>
           <span className="font-display text-sm font-semibold">{t.appName}</span>
         </Link>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center px-4 py-8">

@@ -1,3 +1,4 @@
+import { LocaleProvider, useLocale } from "@/hooks/useLocale";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -15,20 +16,21 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
+  const { tr } = useLocale();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page introuvable</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">{tr("Page introuvable")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          La page que vous cherchez n'existe pas ou a été déplacée.
+          {tr("La page que vous cherchez n'existe pas ou a été déplacée.")}
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Retour à l'accueil
+            {tr("Retour à l'accueil")}
           </Link>
         </div>
       </div>
@@ -37,6 +39,7 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+  const { tr } = useLocale();
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -47,10 +50,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          Cette page ne s'est pas chargée
+          {tr("Cette page ne s'est pas chargée")}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Une erreur est survenue. Vous pouvez actualiser ou revenir à l'accueil.
+          {tr("Une erreur est survenue. Vous pouvez actualiser ou revenir à l'accueil.")}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -60,13 +63,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Réessayer
+            {tr("Réessayer")}
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Accueil
+            {tr("Accueil")}
           </a>
         </div>
       </div>
@@ -122,7 +125,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        {children}
+        <LocaleProvider>{children}</LocaleProvider>
         <Scripts />
       </body>
     </html>

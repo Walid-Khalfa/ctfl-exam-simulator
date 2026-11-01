@@ -14,13 +14,14 @@ import {
 } from "@/components/ui/table";
 import { listStudentResults } from "@/lib/admin.functions";
 import { formatSeconds } from "@/lib/format";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/admin/results")({
   component: AdminResults,
 });
 
 function AdminResults() {
+  const { t, dateLocale } = useLocale();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-results"],
     queryFn: () => listStudentResults(),
@@ -74,7 +75,7 @@ function AdminResults() {
                     {r.timeUsedSeconds != null ? formatSeconds(r.timeUsedSeconds) : "—"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {r.submittedAt ? new Date(r.submittedAt).toLocaleDateString("fr-FR") : "—"}
+                    {r.submittedAt ? new Date(r.submittedAt).toLocaleDateString(dateLocale) : "—"}
                   </TableCell>
                   <TableCell>
                     <Button asChild variant="ghost" size="sm" className="gap-1">

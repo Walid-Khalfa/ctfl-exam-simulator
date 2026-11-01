@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -5,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPasswordPage,
 });
 
 function ResetPasswordPage() {
+  const { t, tr } = useLocale();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,7 +27,7 @@ function ResetPasswordPage() {
       toast.success(t.auth.passwordUpdated);
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Une erreur est survenue.");
+      toast.error(err instanceof Error ? tr(err.message) : tr("Une erreur est survenue."));
     } finally {
       setBusy(false);
     }
@@ -33,6 +35,9 @@ function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
         <h1 className="font-display text-2xl font-bold text-foreground">
           {t.auth.newPasswordTitle}

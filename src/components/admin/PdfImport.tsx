@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { recordDocument, extractDraftQuestions, resetAndReExtract } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { toast } from "sonner";
 
 type ImportSummary = {
@@ -50,6 +50,7 @@ export function PdfImport({
   onImported: () => void;
   onReviewDrafts?: () => void;
 }) {
+  const { t, tr } = useLocale();
   const [questionsPath, setQuestionsPath] = useState<string | null>(null);
   const [answersPath, setAnswersPath] = useState<string | null>(null);
   const [uploading, setUploading] = useState<"questions" | "answers" | null>(null);
@@ -70,7 +71,7 @@ export function PdfImport({
       else setAnswersPath(path);
       toast.success(`${t.admin.pdf.uploaded} : ${file.name}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur de téléversement");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Erreur de téléversement"));
     } finally {
       setUploading(null);
     }
@@ -88,7 +89,7 @@ export function PdfImport({
       toast.success(`${res.inserted} ${t.admin.pdf.extractDone}`);
       onImported();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Échec de l'extraction");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Échec de l'extraction"));
     } finally {
       setExtracting(false);
     }
@@ -105,7 +106,7 @@ export function PdfImport({
       );
       onImported();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Échec de la réinitialisation");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Échec de la réinitialisation"));
     } finally {
       setExtracting(false);
     }
@@ -178,6 +179,7 @@ function ImportSummaryCard({
   summary: ImportSummary;
   onReviewDrafts?: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-sm">
       <h3 className="mb-4 font-display text-lg font-semibold text-foreground">
@@ -286,6 +288,7 @@ function UploadSlot({
   loading: boolean;
   onFile: (f: File) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-2xl border bg-card p-4">
       <Label className="mb-2 block">{label}</Label>
