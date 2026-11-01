@@ -6,18 +6,18 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { bootstrapAvailable, claimInstructorRole } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const tabs = [
-  { to: "/admin", label: t.admin.dashboard, icon: LayoutDashboard, exact: true },
-  { to: "/admin/exams", label: t.admin.exams, icon: FileStack, exact: false },
-  { to: "/admin/results", label: t.admin.results, icon: Users, exact: false },
-  { to: "/admin/audit", label: t.admin.audit.nav, icon: ScrollText, exact: false },
-] as const;
-
 export function AdminShell({ children }: { children: ReactNode }) {
+  const { t, tr } = useLocale();
+  const tabs = [
+    { to: "/admin", label: t.admin.dashboard, icon: LayoutDashboard, exact: true },
+    { to: "/admin/exams", label: t.admin.exams, icon: FileStack, exact: false },
+    { to: "/admin/results", label: t.admin.results, icon: Users, exact: false },
+    { to: "/admin/audit", label: t.admin.audit.nav, icon: ScrollText, exact: false },
+  ] as const;
   const { role, loading } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -64,7 +64,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   toast.success(t.admin.claimDone);
                   setTimeout(() => window.location.reload(), 800);
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Erreur");
+                  toast.error(e instanceof Error ? tr(e.message) : tr("Erreur"));
                 }
               }}
             >

@@ -14,7 +14,7 @@ import {
   deleteExam,
   setExamStatus,
 } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/exams/")({
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/admin/exams/")({
 });
 
 function AdminExams() {
+  const { t, tr } = useLocale();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -41,7 +42,7 @@ function AdminExams() {
       setCreating(false);
       navigate({ to: "/admin/exams/$examId", params: { examId: id } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Erreur"));
     } finally {
       setBusy(false);
     }
@@ -96,8 +97,8 @@ function AdminExams() {
                   </Badge>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {exam.questionCount} {t.common.questions} ({exam.validatedCount} validées) ·{" "}
-                  {exam.duration_minutes} min · {exam.passing_threshold}%
+                  {exam.questionCount} {t.common.questions} ({exam.validatedCount}{" "}
+                  {tr("validées) ·")} {exam.duration_minutes} min · {exam.passing_threshold}%
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -112,7 +113,7 @@ function AdminExams() {
                   className="gap-1"
                   onClick={async () => {
                     await duplicateExam({ data: { id: exam.id } });
-                    toast.success("Examen dupliqué");
+                    toast.success(tr("Examen dupliqué"));
                     refresh();
                   }}
                 >
@@ -124,7 +125,7 @@ function AdminExams() {
                     size="sm"
                     onClick={async () => {
                       await setExamStatus({ data: { id: exam.id, status: "draft" } });
-                      toast.success("Examen dépublié");
+                      toast.success(tr("Examen dépublié"));
                       refresh();
                     }}
                   >
@@ -149,10 +150,12 @@ function AdminExams() {
                       if (!confirm(t.admin.exam.publishConfirm)) return;
                       try {
                         await setExamStatus({ data: { id: exam.id, status: "published" } });
-                        toast.success("Examen publié");
+                        toast.success(tr("Examen publié"));
                         refresh();
                       } catch (e) {
-                        toast.error(e instanceof Error ? e.message : t.admin.exam.publishBlocked);
+                        toast.error(
+                          e instanceof Error ? tr(e.message) : t.admin.exam.publishBlocked,
+                        );
                       }
                     }}
                   >
@@ -181,7 +184,9 @@ function AdminExams() {
                   onClick={async () => {
                     if (!confirm(t.admin.exam.deleteConfirm)) return;
                     const res = await deleteExam({ data: { id: exam.id } });
-                    toast.success(res.archived ? t.admin.archive.blockedDelete : "Examen supprimé");
+                    toast.success(
+                      res.archived ? t.admin.archive.blockedDelete : tr("Examen supprimé"),
+                    );
                     refresh();
                   }}
                 >

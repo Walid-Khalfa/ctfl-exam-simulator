@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export interface ExamConfig {
   title: string;
@@ -39,6 +39,7 @@ export function ExamConfigForm({
   submitting?: boolean;
   submitLabel: string;
 }) {
+  const { t, tr } = useLocale();
   const [form, setForm] = useState<ExamConfig>({ ...defaults, ...initial });
 
   const set = <K extends keyof ExamConfig>(key: K, value: ExamConfig[K]) =>
@@ -75,12 +76,24 @@ export function ExamConfigForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="lang">{t.admin.exam.language}</Label>
-          <Input
+          <select
             id="lang"
             value={form.language}
             onChange={(e) => set("language", e.target.value)}
-            maxLength={10}
-          />
+            aria-describedby="language-hint"
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+            {!["fr", "en"].includes(form.language) && (
+              <option value={form.language}>{form.language}</option>
+            )}
+          </select>
+          <p id="language-hint" className="mt-1 text-xs text-muted-foreground">
+            {tr(
+              "Choisissez la langue réelle du contenu importé. Changer ce champ ne traduit pas les questions.",
+            )}
+          </p>
         </div>
         <div>
           <Label htmlFor="dur">{t.admin.exam.duration}</Label>

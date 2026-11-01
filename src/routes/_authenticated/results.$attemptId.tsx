@@ -7,13 +7,14 @@ import { Progress } from "@/components/ui/progress";
 import { getResults } from "@/lib/exam.functions";
 import { formatSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/_authenticated/results/$attemptId")({
   component: ResultsPage,
 });
 
 function ResultsPage() {
+  const { t } = useLocale();
   const { attemptId } = Route.useParams();
   const { data, isLoading } = useQuery({
     queryKey: ["results", attemptId],

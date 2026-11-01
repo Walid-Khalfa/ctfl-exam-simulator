@@ -24,7 +24,7 @@ import { PdfImport } from "@/components/admin/PdfImport";
 import { ExamConfigForm } from "@/components/admin/ExamConfigForm";
 import { FormattedQuestionText } from "@/components/FormattedQuestionText";
 import { getExamAdmin, updateExam, deleteQuestion, bulkValidateClean } from "@/lib/admin.functions";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { toast } from "sonner";
 import type { ExamWarning } from "@/lib/exam-validation";
 
@@ -33,6 +33,7 @@ export const Route = createFileRoute("/_authenticated/admin/exams/$examId")({
 });
 
 function ExamEditor() {
+  const { t, tr } = useLocale();
   const { examId } = useParams({ from: "/_authenticated/admin/exams/$examId" });
   const qc = useQueryClient();
   const [editing, setEditing] = useState<EditableQuestion | null>(null);
@@ -85,7 +86,7 @@ function ExamEditor() {
       else toast.success(t.admin.bulk.validated.replace("{n}", String(res.validated)));
       refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erreur");
+      toast.error(e instanceof Error ? tr(e.message) : tr("Erreur"));
     }
   };
 
@@ -234,7 +235,7 @@ function ExamEditor() {
                         onClick={async () => {
                           if (!confirm(t.admin.question.deleteConfirm)) return;
                           await deleteQuestion({ data: { id: q.id } });
-                          toast.success("Question supprimée");
+                          toast.success(tr("Question supprimée"));
                           refresh();
                         }}
                       >
@@ -259,7 +260,7 @@ function ExamEditor() {
                   toast.success(t.admin.exam.savedConfig);
                   refresh();
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Erreur");
+                  toast.error(e instanceof Error ? tr(e.message) : tr("Erreur"));
                 }
               }}
             />
@@ -354,6 +355,7 @@ function PublicationChecklist({
 }: {
   checklist: { code: string; ok: boolean; detail?: number }[];
 }) {
+  const { t } = useLocale();
   const c = t.admin.checklist;
   const allOk = checklist.every((i) => i.ok);
   const labelFor = (code: string): string => (c as Record<string, string>)[code] ?? code;
@@ -396,6 +398,7 @@ function PublicationChecklist({
 type QuestionPreviewType = Awaited<ReturnType<typeof getExamAdmin>>["questions"];
 
 function WarningsPanel({ errors, warns }: { errors: ExamWarning[]; warns: ExamWarning[] }) {
+  const { t, tr } = useLocale();
   if (errors.length === 0 && warns.length === 0) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success">
@@ -414,14 +417,14 @@ function WarningsPanel({ errors, warns }: { errors: ExamWarning[]; warns: ExamWa
           <li key={`e${i}`} className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {w.position ? `Q${w.position} : ` : ""}
-            {w.message}
+            {tr(w.message)}
           </li>
         ))}
         {warns.map((w, i) => (
           <li key={`w${i}`} className="flex items-center gap-2 text-muted-foreground">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {w.position ? `Q${w.position} : ` : ""}
-            {w.message}
+            {tr(w.message)}
           </li>
         ))}
       </ul>
@@ -430,6 +433,7 @@ function WarningsPanel({ errors, warns }: { errors: ExamWarning[]; warns: ExamWa
 }
 
 function ExamPreview({ questions }: { questions: QuestionPreviewType }) {
+  const { t } = useLocale();
   if (questions.length === 0) {
     return (
       <div className="rounded-2xl border bg-card p-10 text-center text-muted-foreground">

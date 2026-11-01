@@ -51,6 +51,7 @@ Règles importantes:
 - Ne mets "correct_labels" que si la bonne réponse est explicitement indiquée dans CE PDF ; sinon laisse [].
 - N'invente jamais une réponse correcte.
 - Renseigne toujours "source_page".
+- Conserve la langue originale du PDF pour les énoncés, options, explications et justifications. Ne traduis pas le contenu.
 - Ne renvoie rien d'autre que le JSON.`;
 
 const ANSWER_KEY_INSTRUCTIONS = `Tu es un assistant expert de l'examen ISTQB CTFL v4.0.
@@ -70,6 +71,7 @@ Règles importantes:
 - Conserve les libellés d'options en majuscules (A, B, C, D, E).
 - Si plusieurs options sont correctes, liste-les toutes.
 - N'invente jamais une réponse : n'inclus que ce qui figure dans le PDF.
+- Conserve la langue originale du PDF pour les énoncés, options, explications et justifications. Ne traduis pas le contenu.
 - Ne renvoie rien d'autre que le JSON.`;
 
 function fileParts(bytes: Uint8Array, filename: string) {

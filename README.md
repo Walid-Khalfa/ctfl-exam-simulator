@@ -25,7 +25,7 @@ Ce projet est basé sur **TanStack Start** (React 19 + TanStack Router) et utili
 - **Bibliothèque UI** : React 19 & Tailwind CSS.
 - **Base de données & Authentification** : [Supabase](https://supabase.com) (PostgreSQL avec sécurité RLS active sur toutes les tables).
 - **Gestion des icônes** : Lucide React.
-- **Internationalisation (i18n)** : Module léger franco-centré dans `src/lib/i18n.ts`.
+- **Internationalisation (i18n)** : Dictionnaires français/anglais et préférence persistée via `useLocale`.
 
 ---
 
@@ -124,3 +124,30 @@ Pour exécuter les tests fonctionnels E2E sur votre environnement de développem
    python "C:\Users\wkhal\.gemini\config\skills\webapp-testing\scripts\with_server.py" --server "npm run dev" --port 8080 -- python "C:\Users\wkhal\.gemini\antigravity\brain\d672e78f-70b2-4043-85ae-3391c09fdecc\scratch\e2e_test.py"
    ```
    _(Ce script lancera automatiquement le serveur de développement, attendra sa disponibilité sur le port `8080`, exécutera les assertions fonctionnelles, prendra une capture d'écran de l'authentification et arrêtera proprement le serveur à la fin)._
+
+## Français / English
+
+The interface now has a French/English selector on the home page, authentication
+pages, student/instructor shell and active exam screen. French is the default.
+The browser remembers the choice under `ctfl-locale`. Switching language does not
+navigate, restart an attempt, reset the countdown or change question/option IDs.
+Dates and chapter names follow the interface language. SSR uses a French initial
+render, then restores the saved browser preference after hydration.
+
+**Interface language and exam content language are separate.** The six bundled
+exam sets currently contain French questions, options and explanations. Selecting
+English does not machine-translate them. The dashboard displays each exam's
+content language and offers an independent language filter (default: all).
+
+To offer an English exam, create a separate exam in the instructor area, select
+`English` as its content language, and import the English questions PDF and its
+matching answer PDF (or enter the content manually). Review the extracted text,
+answer keys, diagrams and explanations before validating and publishing. Changing
+the language field alone never translates content. Existing attempts and results
+remain associated with their original exam and questions. No database migration
+or paid translation API is required for the interface change.
+
+Run `npm run test:i18n` for dictionary parity, persistence, SSR isolation and an
+active-exam regression covering language switching, selected answers, review
+flags, notes, question navigation, countdown and autosave. These tests mock the
+backend and do not contact production services.

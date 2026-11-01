@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { GraduationCap, Timer, ShieldCheck, BarChart3 } from "lucide-react";
@@ -5,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
-import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 function Index() {
+  const { t } = useLocale();
   const { session, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -36,6 +38,7 @@ function Index() {
             <span className="font-display text-base font-semibold">{t.appName}</span>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <ThemeToggle />
             <Button asChild variant="ghost" size="sm">
               <Link to="/auth">{t.common.signIn}</Link>
