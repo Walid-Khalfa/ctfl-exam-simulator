@@ -100,6 +100,11 @@ export const fr = {
     warning1: "Il vous reste 1 minute !",
     autoSubmitted: "Le temps est écoulé. Votre examen a été soumis automatiquement.",
     legend: "Légende",
+    language: "Langue de l'examen",
+    bilingual: "Bilingue — français et anglais",
+    contentLanguage: "Langue du contenu",
+    translationMissing:
+      "Traduction anglaise indisponible pour cet élément — le texte français est affiché.",
   },
   results: {
     title: "Résultats",

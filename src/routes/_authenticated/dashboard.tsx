@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { examLanguage } from "@/lib/locale";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, FileText, Award, Loader2 } from "lucide-react";
@@ -9,13 +8,20 @@ import { Badge } from "@/components/ui/badge";
 import { listDashboard } from "@/lib/exam.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocale } from "@/hooks/useLocale";
+import {
+  examLanguageLabel,
+  examSupportsLocale,
+  localizeExamDescription,
+  localizeExamTitle,
+} from "@/lib/content-localization";
+import type { Locale } from "@/lib/locale";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const { t, tr } = useLocale();
+  const { t, tr, locale } = useLocale();
   const { user, role, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -24,10 +30,10 @@ function DashboardPage() {
     queryFn: () => listDashboard(),
   });
 
-  const [languageFilter, setLanguageFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState<"all" | Locale>("all");
   const visibleExams = (data ?? []).filter(
     (item: Awaited<ReturnType<typeof listDashboard>>[number]) =>
-      languageFilter === "all" || examLanguage(item.exam.language) === languageFilter,
+      languageFilter === "all" || examSupportsLocale(item.exam, languageFilter),
   );
 
   const name = (user?.user_metadata?.full_name as string) || user?.email?.split("@")[0] || "";
@@ -47,14 +53,14 @@ function DashboardPage() {
       <div className="mb-6 space-y-3">
         <p className="text-sm text-muted-foreground">
           {tr(
-            "Le choix FR/EN traduit l’interface. Les questions et les corrigés restent dans la langue indiquée sur chaque examen.",
+            "Le choix FR/EN traduit l’interface, les questions, les réponses et les corrigés. Chaque examen est disponible intégralement en français et en anglais.",
           )}
         </p>
         <label className="inline-flex items-center gap-3 text-sm">
           {tr("Langue de l’examen")}
           <select
             value={languageFilter}
-            onChange={(event) => setLanguageFilter(event.target.value)}
+            onChange={(event) => setLanguageFilter(event.target.value as "all" | Locale)}
             className="rounded-md border bg-background px-3 py-2 text-foreground"
           >
             <option value="all">{tr("Toutes les langues")}</option>
@@ -91,13 +97,17 @@ function DashboardPage() {
 }
 
 function ExamCard({ item }: { item: Awaited<ReturnType<typeof listDashboard>>[number] }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { exam, inProgressAttemptId, lastFinishedAttemptId, bestPercentage, attemptsUsed } = item;
+  const title = localizeExamTitle(exam, locale);
+  const description = localizeExamDescription(exam, locale);
 
   return (
     <div className="flex flex-col rounded-2xl border bg-card p-6 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-foreground">{exam.title}</h2>
+        <h2 className="font-display text-lg font-semibold text-foreground" lang={locale}>
+          {title.text}
+        </h2>
         {inProgressAttemptId ? (
           <Badge variant="secondary" className="shrink-0">
             {t.dashboard.inProgress}
@@ -113,13 +123,11 @@ function ExamCard({ item }: { item: Awaited<ReturnType<typeof listDashboard>>[nu
         )}
       </div>
       <Badge variant="outline" className="mt-2 w-fit">
-        {examLanguage(exam.language) === "en"
-          ? "English"
-          : examLanguage(exam.language) === "fr"
-            ? "Français"
-            : exam.language}
+        {examLanguageLabel(exam)}
       </Badge>
-      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{exam.description}</p>
+      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground" lang={locale}>
+        {description.text}
+      </p>
 
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <Stat icon={FileText} label={t.common.questions} value={`${exam.total_questions}`} />

@@ -30,6 +30,8 @@ import { formatSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/hooks/useLocale";
 import { FormattedQuestionText } from "@/components/FormattedQuestionText";
+import { TranslationMissingNotice } from "@/components/TranslationMissingNotice";
+import { examLocales, localizeExamTitle, localizeQuestionText } from "@/lib/content-localization";
 import { Calculator } from "@/components/Calculator";
 import { Notepad } from "@/components/Notepad";
 import { Calculator as CalcIcon, FileText as NoteIcon } from "lucide-react";
@@ -41,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/exam/$attemptId")({
 type LocalAnswer = { selected: string[]; marked: boolean };
 
 function ExamPage() {
-  const { t, tr } = useLocale();
+  const { t, tr, locale } = useLocale();
   const { attemptId } = Route.useParams();
   const navigate = useNavigate();
 
@@ -220,6 +222,9 @@ function ExamPage() {
   const q = questions[current];
   const qAnswer = answers[q.id] ?? { selected: [], marked: false };
   const lowTime = remaining <= 300;
+  const examTitle = localizeExamTitle(data.exam ?? {}, locale);
+  const questionText = localizeQuestionText(q, locale);
+  const isBilingual = examLocales(data.exam ?? {}).length > 1;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -227,10 +232,13 @@ function ExamPage() {
       <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{data.exam?.title}</p>
+            <p className="truncate text-sm font-medium text-foreground">
+              {examTitle.text}
+              {examTitle.translationMissing && <TranslationMissingNotice inline className="ml-2" />}
+            </p>
             <span className="text-xs text-muted-foreground">
-              {t.admin.exam.language}:{" "}
-              {data.exam?.language?.toLowerCase().startsWith("en") ? "English" : "Français"}
+              {t.exam.contentLanguage}: {locale === "en" ? "English" : "Français"}
+              {isBilingual && ` · ${t.exam.bilingual}`}
             </span>
             <p className="text-xs text-muted-foreground">
               {answeredCount}/{questions.length} {t.exam.answered.toLowerCase()}
@@ -300,19 +308,16 @@ function ExamPage() {
               </Badge>
             </div>
             <div className="mt-3 text-lg font-semibold leading-relaxed text-foreground">
-              <div lang={data.exam?.language || "fr"}>
-                <FormattedQuestionText text={q.text} />
+              <div lang={locale}>
+                <FormattedQuestionText text={questionText.text} />
               </div>
+              {questionText.translationMissing && <TranslationMissingNotice className="mt-3" />}
             </div>
 
-            <div
-              className="mt-5 space-y-3"
-              role="group"
-              aria-label={t.exam.question}
-              lang={data.exam?.language || "fr"}
-            >
+            <div className="mt-5 space-y-3" role="group" aria-label={t.exam.question} lang={locale}>
               {q.options.map((opt) => {
                 const selected = qAnswer.selected.includes(opt.id);
+                const optionText = localizeQuestionText(opt, locale);
                 return (
                   <button
                     key={opt.id}
@@ -337,7 +342,8 @@ function ExamPage() {
                     >
                       {selected ? <Check className="h-4 w-4" /> : opt.label}
                     </span>
-                    <span className="text-sm text-foreground">{opt.text}</span>
+                    <span className="text-sm text-foreground">{optionText.text}</span>
+                    {optionText.translationMissing && <TranslationMissingNotice inline />}
                   </button>
                 );
               })}

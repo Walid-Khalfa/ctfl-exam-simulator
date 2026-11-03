@@ -8,13 +8,15 @@ import { getResults } from "@/lib/exam.functions";
 import { formatSeconds } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/hooks/useLocale";
+import { TranslationMissingNotice } from "@/components/TranslationMissingNotice";
+import { localizeExamTitle } from "@/lib/content-localization";
 
 export const Route = createFileRoute("/_authenticated/results/$attemptId")({
   component: ResultsPage,
 });
 
 function ResultsPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { attemptId } = Route.useParams();
   const { data, isLoading } = useQuery({
     queryKey: ["results", attemptId],
@@ -35,6 +37,7 @@ function ResultsPage() {
   const { attempt, exam, correctCount, totalQuestions, chapterStats, levelStats } = data;
   const passed = attempt.passed === true;
   const pct = attempt.percentage ?? 0;
+  const examTitle = localizeExamTitle(exam ?? {}, locale);
 
   return (
     <AppShell>
@@ -53,7 +56,12 @@ function ResultsPage() {
           <h1 className="mt-4 font-display text-3xl font-bold text-foreground">
             {passed ? t.results.passed : t.results.failed}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{exam?.title}</p>
+          <p className="mt-1 text-sm text-muted-foreground" lang={locale}>
+            {examTitle.text}
+          </p>
+          {examTitle.translationMissing && (
+            <TranslationMissingNotice className="mx-auto mt-2 max-w-md text-left" />
+          )}
           <p className="mt-6 text-5xl font-bold text-foreground">{pct}%</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {t.results.threshold}: {exam?.passing_threshold}%
