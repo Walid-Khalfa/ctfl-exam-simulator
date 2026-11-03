@@ -2,42 +2,7 @@
 // Fully functional Firebase Firestore & Auth adapter masquerading as Supabase client.
 // This allows the app to migrate from Supabase to Firebase without modifying 100+ DB call sites.
 import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  ENSEMBLE_A_EXAM,
-  ENSEMBLE_A_QUESTIONS,
-  ENSEMBLE_A_OPTIONS,
-  ENSEMBLE_A_SOLUTIONS,
-} from "./seed-ensemble-a";
-import {
-  ENSEMBLE_B_EXAM,
-  ENSEMBLE_B_QUESTIONS,
-  ENSEMBLE_B_OPTIONS,
-  ENSEMBLE_B_SOLUTIONS,
-} from "./seed-ensemble-b";
-import {
-  ENSEMBLE_C_EXAM,
-  ENSEMBLE_C_QUESTIONS,
-  ENSEMBLE_C_OPTIONS,
-  ENSEMBLE_C_SOLUTIONS,
-} from "./seed-ensemble-c";
-import {
-  ENSEMBLE_D_EXAM,
-  ENSEMBLE_D_QUESTIONS,
-  ENSEMBLE_D_OPTIONS,
-  ENSEMBLE_D_SOLUTIONS,
-} from "./seed-ensemble-d";
-import {
-  ENSEMBLE_E_EXAM,
-  ENSEMBLE_E_QUESTIONS,
-  ENSEMBLE_E_OPTIONS,
-  ENSEMBLE_E_SOLUTIONS,
-} from "./seed-ensemble-e";
-import {
-  ENSEMBLE_F_EXAM,
-  ENSEMBLE_F_QUESTIONS,
-  ENSEMBLE_F_OPTIONS,
-  ENSEMBLE_F_SOLUTIONS,
-} from "./seed-ensemble-f";
+import { SEED_EXAMS, SEED_OPTIONS, SEED_QUESTIONS, SEED_SOLUTIONS } from "./seed-payload";
 import {
   getFirestore,
   doc,
@@ -75,41 +40,52 @@ export function generateUUID() {
 // Static Seed Data from Supabase Migrations
 const EXAM_ID = "ctfl-exam-v4-0000-0000-0000-000000000000";
 
-const SEED_EXAMS = [
-  ENSEMBLE_A_EXAM,
-  ENSEMBLE_B_EXAM,
-  ENSEMBLE_C_EXAM,
-  ENSEMBLE_D_EXAM,
-  ENSEMBLE_E_EXAM,
-  ENSEMBLE_F_EXAM,
-];
+// French seed records enriched with their English translation (same stable ids,
+// same order, same correct answers — see ./seed-payload).
 
-const SEED_QUESTIONS = [
-  ...ENSEMBLE_A_QUESTIONS,
-  ...ENSEMBLE_B_QUESTIONS,
-  ...ENSEMBLE_C_QUESTIONS,
-  ...ENSEMBLE_D_QUESTIONS,
-  ...ENSEMBLE_E_QUESTIONS,
-  ...ENSEMBLE_F_QUESTIONS,
-];
+/** Fields that hold the English translation of a seeded record. */
+const TRANSLATED_TABLES = ["exams", "questions", "question_options", "question_solutions"] as const;
 
-const SEED_OPTIONS = [
-  ...ENSEMBLE_A_OPTIONS,
-  ...ENSEMBLE_B_OPTIONS,
-  ...ENSEMBLE_C_OPTIONS,
-  ...ENSEMBLE_D_OPTIONS,
-  ...ENSEMBLE_E_OPTIONS,
-  ...ENSEMBLE_F_OPTIONS,
-];
+type TranslatedTable = (typeof TRANSLATED_TABLES)[number];
 
-const SEED_SOLUTIONS = [
-  ...ENSEMBLE_A_SOLUTIONS,
-  ...ENSEMBLE_B_SOLUTIONS,
-  ...ENSEMBLE_C_SOLUTIONS,
-  ...ENSEMBLE_D_SOLUTIONS,
-  ...ENSEMBLE_E_SOLUTIONS,
-  ...ENSEMBLE_F_SOLUTIONS,
-];
+function englishFieldsOf(table: TranslatedTable, record: any): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  const assign = (key: string) => {
+    if (record[key] !== undefined) fields[key] = record[key];
+  };
+  if (table === "exams") {
+    assign("title_en");
+    assign("description_en");
+  } else if (table === "question_solutions") {
+    assign("explanation_en");
+    assign("option_rationales_en");
+  } else {
+    assign("text_en");
+  }
+  return fields;
+}
+
+/**
+ * Copies the English content of the current seeds onto already-persisted records.
+ * Idempotent and non-destructive: only the `*_en` fields are written, and only
+ * when they are absent or outdated. Attempts, answers and results are untouched.
+ */
+function mergeEnglishIntoCache(table: TranslatedTable, cached: any[]): any[] {
+  const seedById = new Map<string, any>();
+  for (const item of memoryStore[table]) {
+    seedById.set(item.id ?? item.question_id, item);
+  }
+  return cached.map((item) => {
+    const seed = seedById.get(item.id ?? item.question_id);
+    if (!seed) return item;
+    const english = englishFieldsOf(table, seed);
+    let changed = false;
+    for (const [key, value] of Object.entries(english)) {
+      if (JSON.stringify(item[key]) !== JSON.stringify(value)) changed = true;
+    }
+    return changed ? { ...item, ...english } : item;
+  });
+}
 
 // Offline fallback store in memory (synced to localStorage in browser)
 const memoryStore: Record<string, any[]> = {
@@ -284,6 +260,26 @@ async function ensureSeeded() {
               needsSeeding = true;
             }
           }
+
+          // Translations were added after the first release: existing documents
+          // must be refreshed so the English content reaches production data.
+          if (!needsSeeding) {
+            const examSnap = snap.data() as any;
+            if (!examSnap?.title_en) needsSeeding = true;
+            else if (qIds.length > 0) {
+              const lastQId = qIds[qIds.length - 1];
+              const lastSolSnap = await getDoc(doc(db, "question_solutions", lastQId));
+              const solData = lastSolSnap.data() as any;
+              if (!solData?.explanation_en) needsSeeding = true;
+              else {
+                const lastOptId = optList[optList.length - 1].id;
+                const lastOptSnap = await getDoc(doc(db, "question_options", lastOptId));
+                if (!(lastOptSnap.data() as any)?.text_en) needsSeeding = true;
+              }
+              const firstQSnap = await getDoc(doc(db, "questions", qIds[0]));
+              if (!(firstQSnap.data() as any)?.text_en) needsSeeding = true;
+            }
+          }
         } catch (checkErr) {
           console.warn(
             `[Firebase] Failed to check integrity for exam ${exam.id}, forcing re-seed:`,
@@ -359,6 +355,7 @@ if (typeof window !== "undefined") {
           }
 
           const seedItems = memoryStore[tbl];
+          cached = mergeEnglishIntoCache(tbl as TranslatedTable, cached);
           const cachedIds = new Set(cached.map((item: any) => item.id || item.question_id));
           const missingItems = seedItems.filter(
             (item: any) => !cachedIds.has(item.id || item.question_id),

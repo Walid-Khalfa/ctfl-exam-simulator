@@ -134,20 +134,35 @@ navigate, restart an attempt, reset the countdown or change question/option IDs.
 Dates and chapter names follow the interface language. SSR uses a French initial
 render, then restores the saved browser preference after hydration.
 
-**Interface language and exam content language are separate.** The six bundled
-exam sets currently contain French questions, options and explanations. Selecting
-English does not machine-translate them. The dashboard displays each exam's
-content language and offers an independent language filter (default: all).
+**The six bundled exam sets are bilingual.** Selecting English shows the exam
+title, description, questions, answer options, explanations and per-option
+justifications in English; selecting French shows the original French content.
+The translation is versioned in the repository and stored on the same records
+under `_en` fields, so there is one attempt history per exam instead of six
+French exams plus six English ones. No translation API is called during an exam.
 
-To offer an English exam, create a separate exam in the instructor area, select
-`English` as its content language, and import the English questions PDF and its
-matching answer PDF (or enter the content manually). Review the extracted text,
-answer keys, diagrams and explanations before validating and publishing. Changing
-the language field alone never translates content. Existing attempts and results
-remain associated with their original exam and questions. No database migration
-or paid translation API is required for the interface change.
+Switching language mid-attempt keeps the selected answers, review flags, notes,
+the current question and the remaining time; it never creates or submits an
+attempt. Missing translations fall back to French with an explicit “English
+translation unavailable” badge. The dashboard labels these exams
+`Français / English` and keeps an independent content-language filter.
 
-Run `npm run test:i18n` for dictionary parity, persistence, SSR isolation and an
+The interface language and the exam content language are still configurable
+separately: an exam created by an instructor stays monolingual until its
+translation is added.
+
+Existing Firestore documents must receive the `*_en` fields: run the idempotent
+migration (simulation by default) described in
+[`docs/bilingual-content.md`](docs/bilingual-content.md):
+
+```bash
+node scripts/migrate-bilingual-content.mjs --check
+FIREBASE_PROJECT_ID=... node scripts/migrate-bilingual-content.mjs \
+  --apply --backup backup-bilingue.json
+```
+
+Run `npm run test:i18n` for dictionary parity, persistence, SSR isolation,
+bilingual content coverage (240 questions, 965 options, 240 explanations) and an
 active-exam regression covering language switching, selected answers, review
 flags, notes, question navigation, countdown and autosave. These tests mock the
 backend and do not contact production services.

@@ -97,6 +97,10 @@ export const en: Dict = {
     warning1: "You have 1 minute remaining!",
     autoSubmitted: "Time is up. Your exam has been submitted automatically.",
     legend: "Legend",
+    language: "Exam language",
+    bilingual: "Bilingual — French and English",
+    contentLanguage: "Content language",
+    translationMissing: "English translation unavailable for this item — the French text is shown.",
   },
   results: {
     title: "Results",

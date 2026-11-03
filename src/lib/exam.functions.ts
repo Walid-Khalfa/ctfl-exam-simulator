@@ -345,7 +345,15 @@ export const getCorrection = createServerFn({ method: "GET" })
       .in("question_id", qIds);
 
     const ansMap = new Map((answers ?? []).map((a) => [a.question_id, a]));
-    const solMap = new Map((solutions ?? []).map((s) => [s.question_id, s]));
+    type SolutionRow = {
+      correct_option_ids?: string[];
+      explanation?: string;
+      option_rationales?: Record<string, string>;
+      option_rationales_en?: Record<string, string>;
+    };
+    const solMap = new Map<string, SolutionRow>(
+      (solutions ?? []).map((s) => [s.question_id, s as SolutionRow]),
+    );
 
     return {
       questions: (questions ?? []).map((q) => {
@@ -358,6 +366,8 @@ export const getCorrection = createServerFn({ method: "GET" })
           isCorrect: ans?.is_correct === true,
           correctOptionIds: sol?.correct_option_ids ?? [],
           explanation: sol?.explanation ?? "",
+          option_rationales: sol?.option_rationales ?? {},
+          option_rationales_en: sol?.option_rationales_en ?? {},
         };
       }),
     };

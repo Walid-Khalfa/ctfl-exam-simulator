@@ -70,8 +70,8 @@ export const uiEnglish: Record<string, string> = {
   "Langue de l’examen": "Exam language",
   "Toutes les langues": "All languages",
   "Aucun examen dans cette langue.": "No exams are available in this language.",
-  "Le choix FR/EN traduit l’interface. Les questions et les corrigés restent dans la langue indiquée sur chaque examen.":
-    "FR/EN changes the interface language. Questions and explanations remain in the language shown on each exam.",
+  "Le choix FR/EN traduit l’interface, les questions, les réponses et les corrigés. Chaque examen est disponible intégralement en français et en anglais.":
+    "FR/EN switches the interface, the questions, the answers and the explanations. Every exam is fully available in French and in English.",
   "Choisissez la langue réelle du contenu importé. Changer ce champ ne traduit pas les questions.":
     "Select the actual language of the imported content. Changing this field does not translate the questions.",
 };
