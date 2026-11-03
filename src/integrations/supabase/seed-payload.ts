@@ -88,3 +88,5 @@ export const SEED_COVERAGE = translationCoverage(
   SEED_OPTIONS,
   SEED_SOLUTIONS,
 );
+
+export { englishFieldsToAdd } from "../../lib/bilingual-fields";

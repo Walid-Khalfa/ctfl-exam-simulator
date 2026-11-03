@@ -22,8 +22,8 @@
  * Options:
  *   --apply             write the English fields to Firestore
  *   --dry-run           explicit simulation (default)
- *   --backup <path>     save the current documents to <path> before writing
- *   --rollback <path>   restore the documents saved in <path>
+ *   --backup <path>     save English fields and target metadata before writing
+ *   --rollback <path>   restore only changed English fields from <path>
  *   --check             exit with status 1 when a translation is missing
  *   --verbose           list every document that would change
  */
@@ -50,8 +50,8 @@ function parseArgs(argv) {
           "",
           "  --dry-run (default)   simulate, print what would change",
           "  --apply               write the English fields to Firestore",
-          "  --backup <path>       export the current documents before writing",
-          "  --rollback <path>     restore the documents exported in <path>",
+          "  --backup <path>       export English fields before writing",
+          "  --rollback <path>     restore English fields exported in <path>",
           "  --check               exit 1 when a translation is missing",
           "  --verbose             list every modified document",
         ].join("\n"),
@@ -104,32 +104,39 @@ async function loadPayload() {
       question_options: module.SEED_OPTIONS,
       question_solutions: module.SEED_SOLUTIONS,
       coverage: module.SEED_COVERAGE,
+      englishFieldsToAdd: module.englishFieldsToAdd,
     };
   } finally {
     await server.close();
   }
 }
 
-async function firestoreConfig() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
+export async function firestoreConfig(env = process.env) {
+  const projectId = env.FIREBASE_PROJECT_ID;
   if (!projectId) return null;
+  if (!env.FIREBASE_DATABASE_ID || !env.FIREBASE_API_KEY) {
+    throw new Error(
+      "FIREBASE_DATABASE_ID and FIREBASE_API_KEY are required with FIREBASE_PROJECT_ID; no default database fallback is allowed.",
+    );
+  }
   return {
     projectId,
-    appId: process.env.FIREBASE_APP_ID ?? "migration-script",
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN ?? `${projectId}.firebaseapp.com`,
-    databaseId: process.env.FIREBASE_DATABASE_ID,
+    appId: env.FIREBASE_APP_ID ?? "migration-script",
+    apiKey: env.FIREBASE_API_KEY,
+    authDomain: env.FIREBASE_AUTH_DOMAIN ?? `${projectId}.firebaseapp.com`,
+    databaseId: env.FIREBASE_DATABASE_ID,
   };
 }
 
 async function openFirestore() {
   const config = await firestoreConfig();
   if (!config) return null;
-  const { initializeApp, getApps, getApp } = await import("firebase/app");
-  const { getFirestore, doc, getDoc, setDoc, deleteDoc } = await import("firebase/firestore");
-  const app = getApps().length > 0 ? getApp() : initializeApp(config);
-  const db = config.databaseId ? getFirestore(app, config.databaseId) : getFirestore(app);
-  return { db, doc, getDoc, setDoc, deleteDoc };
+  const { initializeApp } = await import("firebase/app");
+  const { getFirestore, doc, getDoc, runTransaction, deleteField } =
+    await import("firebase/firestore");
+  const app = initializeApp(config, `bilingual-migration-${Date.now()}`);
+  const db = getFirestore(app, config.databaseId);
+  return { db, doc, getDoc, runTransaction, deleteField, config };
 }
 
 function readBackup(path) {
@@ -148,41 +155,76 @@ async function rollback(path) {
     console.error("FIREBASE_PROJECT_ID is required to roll back against Firestore.");
     process.exit(2);
   }
-  const { db, doc, setDoc, deleteDoc } = store;
+  const { db, doc, runTransaction, deleteField, config } = store;
+  if (
+    backup.version !== 2 ||
+    backup.projectId !== config.projectId ||
+    backup.databaseId !== config.databaseId
+  ) {
+    throw new Error("Backup format or target mismatch. Refusing a whole-document rollback.");
+  }
   let restored = 0;
-  let removed = 0;
   for (const table of TABLES) {
-    const entries = backup.tables[table] ?? [];
-    for (const entry of entries) {
+    for (const entry of backup.tables[table] ?? []) {
       const ref = doc(db, table, entry.id);
-      if (entry.exists) {
-        await setDoc(ref, entry.data);
-        restored += 1;
-      } else {
-        await deleteDoc(ref);
-        removed += 1;
-      }
+      await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists()) throw new Error(`Rollback document missing: ${table}/${entry.id}`);
+        const current = snapshot.data();
+        const patch = rollbackFields(current, entry, deleteField);
+        if (Object.keys(patch).length) transaction.update(ref, patch);
+      });
+      restored += 1;
     }
   }
-  console.log(`Rollback complete: ${restored} document(s) restored, ${removed} removed.`);
+  console.log(`Rollback complete: English fields restored on ${restored} document(s).`);
 }
 
-function planChanges(table, payloadRecords, currentDocs) {
+export function rollbackFields(current, entry, deleteField) {
+  const patch = {};
+  for (const [key, applied] of Object.entries(entry.applied)) {
+    if (
+      !["title_en", "description_en", "text_en", "explanation_en", "option_rationales_en"].includes(
+        key,
+      )
+    )
+      throw new Error("Invalid backup field");
+    if (JSON.stringify(current[key]) === JSON.stringify(entry.before[key])) continue;
+    if (JSON.stringify(current[key]) !== JSON.stringify(applied))
+      throw new Error(`English content changed since migration: ${entry.id}/${key}`);
+    patch[key] = Object.hasOwn(entry.before, key) ? entry.before[key] : deleteField();
+  }
+  return patch;
+}
+
+export function planChanges(table, payloadRecords, currentDocs, patchFor) {
   const changes = [];
   for (const record of payloadRecords) {
     const id = idOf(table, record);
-    const fields = englishFields(table, record);
-    if (Object.keys(fields).length === 0) continue;
     const existing = currentDocs.get(id);
-    const patch = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (JSON.stringify(existing?.[key]) !== JSON.stringify(value)) patch[key] = value;
+    if (!existing)
+      throw new Error(
+        `Missing document ${table}/${id}; migration refuses to create partial documents. Verify the target database.`,
+      );
+    const patch = patchFor(table, record, existing);
+    const after = { ...existing, ...patch };
+    for (const [key, expected] of Object.entries(englishFields(table, record))) {
+      const complete =
+        key === "option_rationales_en"
+          ? Object.keys(expected).every(
+              (id) => typeof after[key]?.[id] === "string" && after[key][id].trim(),
+            )
+          : typeof after[key] === "string" && after[key].trim();
+      if (!complete)
+        throw new Error(
+          `Source content differs at ${table}/${id}/${key}; supply a reviewed translation instead of applying stale seed content.`,
+        );
     }
-    if (Object.keys(patch).length > 0) changes.push({ id, patch });
+    if (Object.keys(patch).length)
+      changes.push({ id, patch, before: englishFields(table, existing), source: record });
   }
   return changes;
 }
-
 // Documents are addressed by their stable ids coming from the payload, so one get
 // per document is enough (no collection scan).
 async function readCurrentDocs(store, table, ids) {
@@ -241,6 +283,7 @@ async function main() {
 
   const store = await openFirestore();
   if (!store) {
+    if (args.apply) throw new Error("FIREBASE_PROJECT_ID is required to apply a migration.");
     console.log(
       "\nNo Firestore credentials (FIREBASE_PROJECT_ID) — simulation limited to the bundled payload.",
     );
@@ -252,7 +295,12 @@ async function main() {
   let totalChanges = 0;
   for (const table of TABLES) {
     const ids = payload[table].map((record) => idOf(table, record));
-    const changes = planChanges(table, payload[table], await readCurrentDocs(store, table, ids));
+    const changes = planChanges(
+      table,
+      payload[table],
+      await readCurrentDocs(store, table, ids),
+      payload.englishFieldsToAdd,
+    );
     plans[table] = changes;
     totalChanges += changes.length;
     console.log(`\n${table}: ${changes.length} document(s) to update.`);
@@ -269,27 +317,45 @@ async function main() {
     return;
   }
 
+  if (!args.backup) throw new Error("--backup <path> is required with --apply.");
+  if (incomplete.length) throw new Error("Incomplete translation payload; refusing to apply.");
   if (args.backup) {
-    const backup = { generatedAt: new Date().toISOString(), tables: {} };
+    const backup = {
+      version: 2,
+      projectId: store.config.projectId,
+      databaseId: store.config.databaseId,
+      generatedAt: new Date().toISOString(),
+      tables: {},
+    };
     for (const table of TABLES) {
       backup.tables[table] = [];
       for (const change of plans[table]) {
-        const snapshot = await store.getDoc(store.doc(store.db, table, change.id));
-        backup.tables[table].push({
-          id: change.id,
-          exists: snapshot.exists(),
-          data: snapshot.exists() ? snapshot.data() : null,
-        });
+        backup.tables[table].push({ id: change.id, before: change.before, applied: change.patch });
       }
     }
     const target = isAbsolute(args.backup) ? args.backup : resolve(process.cwd(), args.backup);
-    writeFileSync(target, JSON.stringify(backup, null, 2));
+    writeFileSync(target, JSON.stringify(backup, null, 2), { flag: "wx", mode: 0o600 });
     console.log(`\nBackup written to ${target}`);
   }
 
   for (const table of TABLES) {
     for (const change of plans[table]) {
-      await store.setDoc(store.doc(store.db, table, change.id), change.patch, { merge: true });
+      const ref = store.doc(store.db, table, change.id);
+      await store.runTransaction(store.db, async (transaction) => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists()) throw new Error(`Document disappeared: ${table}/${change.id}`);
+        const current = snapshot.data();
+        const patch = payload.englishFieldsToAdd(table, change.source, current);
+        if (
+          JSON.stringify(patch) !== JSON.stringify(change.patch) ||
+          JSON.stringify(englishFields(table, current)) !== JSON.stringify(change.before)
+        ) {
+          throw new Error(
+            `Document changed after planning: ${table}/${change.id}; run a fresh simulation.`,
+          );
+        }
+        transaction.update(ref, patch);
+      });
     }
   }
   console.log(
@@ -297,7 +363,9 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

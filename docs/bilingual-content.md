@@ -1,189 +1,125 @@
 # Contenu bilingue des examens (FR / EN)
 
-Les six séries d'examens CTFL v4 peuvent désormais être passées **entièrement en
-français ou entièrement en anglais** : titre, description, questions, options,
-explications et justifications par option. Aucun appel à un LLM n'est effectué
-pendant un examen : les traductions sont versionnées dans le dépôt et persistées
-avec les questions.
+Les six séries embarquées comprennent 240 questions, 965 options, 240 explications
+et 645 justifications par option traduites. Les traductions sont versionnées dans
+`src/integrations/supabase/translations/`, sans appel LLM pendant un examen.
 
-## 1. Modèle de données
+## Modèle et affichage
 
-Un examen reste **un seul examen** : il n'existe pas six séries françaises et six
-séries anglaises. La traduction anglaise est stockée **sur les mêmes documents**,
-dans des champs suffixés `_en` :
+Un examen conserve ses identifiants, tentatives et statistiques dans les deux langues.
+Les traductions occupent `title_en`, `description_en`, `text_en`, `explanation_en`
+et `option_rationales_en` sur les mêmes documents. Le sélecteur FR/EN pilote
+l'interface, l'examen, les résultats et la correction. Le handler de correction
+transmet explicitement l'explication et les justifications anglaises.
 
-| Table                | Champs français                    | Champs anglais ajoutés                   |
-| -------------------- | ---------------------------------- | ---------------------------------------- |
-| `exams`              | `title`, `description`             | `title_en`, `description_en`             |
-| `questions`          | `text`                             | `text_en`                                |
-| `question_options`   | `text`                             | `text_en`                                |
-| `question_solutions` | `explanation`, `option_rationales` | `explanation_en`, `option_rationales_en` |
+Les réponses, le marquage, les notes, la question courante et le temps restant ne
+sont pas réinitialisés lors du changement de langue. Une traduction absente
+entraîne un repli français signalé. Les langues déclarées sur une carte ne
+remplacent pas la validation de chaque question d'un examen ajouté par un formateur.
 
-Ne sont **jamais** modifiés : identifiants (`id`, `question_id`, `option_id`),
-`exam_id`, points, chapitres, niveaux K, objectifs d'apprentissage, ordre des
-options, `correct_option_ids` et le champ `language` des examens.
+## Préserver les modifications du formateur
 
-Conséquences : les tentatives, réponses, marquages, notes, résultats et
-statistiques existants restent valables dans les deux langues, et changer de
-langue ne crée ni ne soumet aucune tentative.
+`src/lib/bilingual-fields.ts` calcule les champs anglais manquants. Le même
+calcul est utilisé par le cache, l'initialisation Firestore et la migration :
 
-## 2. Emplacement des traductions
+- aucun texte français, statut, point, identifiant ou corrigé n'est remplacé ;
+- une traduction anglaise déjà renseignée est conservée ;
+- une traduction du seed n'est ajoutée que si son texte français correspond
+  encore au document courant ; sinon une traduction revue est nécessaire ;
+- les justifications anglaises sont complétées par option sans remplacer celles
+  déjà renseignées ;
+- les enfants supprimés d'un examen existant ne sont pas recréés automatiquement.
 
-- `src/integrations/supabase/translations/ensemble-{a..f}.en.ts` : traductions
-  anglaises par **identifiant stable** (jamais par position).
-- `src/integrations/supabase/translations/index.ts` : agrégation, helpers purs et
-  idempotents (`withEnglishExam`, `withEnglishQuestion`, `withEnglishOption`,
-  `withEnglishSolution`) et calcul de couverture.
-- `src/integrations/supabase/seed-payload.ts` : source unique utilisée par
-  l'application (seed Firestore / cache localStorage) **et** par le script de
-  migration.
-- `src/lib/content-localization.ts` : résolution à l'affichage, avec repli
-  français explicite (`translationMissing: true`).
+Les nouveaux examens absents sont initialisés avec des documents complets. Les
+examens existants reçoivent uniquement les champs anglais manquants, dans des
+transactions qui relisent le document avant écriture. Aucun ancien examen n'est
+supprimé dans cette initialisation. Les lectures concurrentes partagent la même
+promesse d'initialisation.
 
-## 3. Couverture par série
-
-Mesurée à partir des seeds, via `node scripts/migrate-bilingual-content.mjs --check` :
-
-| Série     | Questions   | Options     | Explications | Justifications/option |
-| --------- | ----------- | ----------- | ------------ | --------------------- |
-| A         | 40/40       | 160/160     | 40/40        | 0/0 (aucune en FR)    |
-| B         | 40/40       | 160/160     | 40/40        | 0/0 (aucune en FR)    |
-| C         | 40/40       | 160/160     | 40/40        | 160/160               |
-| D         | 40/40       | 165/165     | 40/40        | 165/165               |
-| E         | 40/40       | 160/160     | 40/40        | 160/160               |
-| F         | 40/40       | 160/160     | 40/40        | 160/160               |
-| **Total** | **240/240** | **965/965** | **240/240**  | **645/645**           |
-
-Les séries C à F disposent en plus d'une justification par option ; toutes sont
-traduites. Les séries A et B n'en ont pas en français, donc rien n'est à traduire.
-
-## 4. Comportement bilingue
-
-- Le sélecteur d'interface (`LanguageSwitcher`, préférence `ctfl-locale`) pilote
-  désormais **aussi** le contenu pédagogique : examen, résultats, correction.
-- Le changement de langue est purement local : il ne navigue pas, ne recharge pas
-  la tentative et préserve les réponses, le marquage, les notes, la question
-  courante et le temps restant.
-- Si une traduction manque (examen créé par un formateur, ancien document non
-  migré), le texte français est affiché avec un badge explicite
-  `TranslationMissingNotice` (« Traduction anglaise indisponible »). Le problème
-  n'est jamais masqué.
-- Les badges et filtres du tableau de bord n'annoncent plus les séries bilingues
-  comme « françaises » : `examLanguageLabel` affiche « Français / English » dès
-  qu'un `title_en` existe, et `examLocales` détermine les langues réellement
-  disponibles.
-
-## 5. Migration des données existantes
-
-Script : `scripts/migrate-bilingual-content.mjs`.
+## Vérification locale, sans connexion à Firestore
 
 ```bash
-# Simulation (par défaut) : couverture + documents qui changeraient
-node scripts/migrate-bilingual-content.mjs --verbose
-
-# Échec si une traduction manque ou si des documents restent à mettre à jour
 node scripts/migrate-bilingual-content.mjs --check
-
-# Sauvegarde puis écriture (Firestore, nécessite FIREBASE_PROJECT_ID)
-node scripts/migrate-bilingual-content.mjs --apply --backup backup-bilingue.json
-
-# Retour arrière
-node scripts/migrate-bilingual-content.mjs --rollback backup-bilingue.json
+npm run test:i18n
+VERCEL=1 npm run build
 ```
 
-Garanties :
+Sans projet configuré, `--check` valide seulement le payload embarqué ; ce n'est
+pas une preuve que la production est migrée. Les tests couvrent notamment le
+handler de correction, la conservation des modifications du formateur,
+l'idempotence, les documents absents et le retour arrière limité à l'anglais.
+La couverture de présence ne garantit pas l'exactitude pédagogique de chaque traduction.
 
-- **idempotent** : seuls les champs `*_en` absents ou obsolètes sont écrits ;
-  une seconde exécution n'écrit rien ;
-- **non destructif** : seuls les champs `*_en` sont écrits, en `merge: true` ;
-- **identifiants stables** : chaque document est lu par `id` / `question_id`,
-  jamais par position ni par balayage de collection ;
-- **aucune écriture** sur `attempts`, `attempt_answers`, `attempt_events`,
-  `profiles` ;
-- `--backup` exporte l'état exact des documents avant écriture, `--rollback`
-  restaure cet état (y compris la suppression des documents qui n'existaient pas).
+## Migration distante : simulation obligatoire avant application
 
-Variables d'environnement attendues pour l'accès Firestore :
-`FIREBASE_PROJECT_ID` (requis), `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`,
-`FIREBASE_APP_ID`, `FIREBASE_DATABASE_ID` (facultatif).
+Le script utilise le SDK client Firestore et reste soumis aux règles d'accès.
+Une clé API Firebase n'est pas une autorisation administrateur. Si l'accès est
+refusé, interrompre l'opération et préparer un accès autorisé ; ne pas ouvrir les
+règles de sécurité pour exécuter ce script.
 
-Sans `FIREBASE_PROJECT_ID`, le script reste en **simulation sur le payload
-embarqué** : il affiche la couverture et n'écrit rien.
+Configurer explicitement ces trois variables dans l'environnement :
 
-## 6. Ce qui fonctionne après la fusion du code, et ce qui exige la migration
+- `FIREBASE_PROJECT_ID` : projet cible ;
+- `FIREBASE_DATABASE_ID` : identifiant exact de la base nommée utilisée par
+  l'application (voir `firebaseConfig` dans `mock-client.ts`) ; pour une base
+  par défaut, la valeur doit être explicitement `(default)` ;
+- `FIREBASE_API_KEY` : clé de configuration Firebase de ce projet.
 
-| Après fusion du code                                                                                                                                                                            | Nécessite la migration des données                                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Les six séries s'affichent en anglais pour les utilisateurs dont le cache local est (re)initialisé : `mock-client` fusionne les champs `_en` des seeds dans les enregistrements déjà persistés. | Les documents Firestore déjà créés doivent recevoir les champs `_en` pour que **tous** les navigateurs (cache vide ou ancien, autre appareil) servent l'anglais sans repli. |
-| Les nouvelles installations / nouveaux caches sont bilingues dès le seed.                                                                                                                       | Les examens créés par un formateur restent monolingues jusqu'à l'ajout de leurs traductions.                                                                                |
-| Les tentatives en cours et terminées restent lisibles et corrigeables dans les deux langues.                                                                                                    | —                                                                                                                                                                           |
+`FIREBASE_APP_ID` et `FIREBASE_AUTH_DOMAIN` restent facultatifs. Sans base ou clé
+explicite, le script refuse de se connecter. Chaque exécution utilise une
+instance Firebase dédiée à cette configuration.
 
-La réconciliation côté client est un filet de sécurité (idempotent, uniquement
-`*_en`), pas un substitut à la migration : lancez `--apply` après la fusion pour
-que la base elle-même soit bilingue.
+```bash
+# Les trois variables ci-dessus doivent déjà être configurées.
+node scripts/migrate-bilingual-content.mjs --verbose
+node scripts/migrate-bilingual-content.mjs --check
 
-## 7. Vérifications effectuées
+# Après revue de la simulation : le fichier de sauvegarde doit être nouveau.
+node scripts/migrate-bilingual-content.mjs --apply --backup backup-bilingue-v2.json
+```
 
-| Contrôle                                                                                                                   | Résultat                                                                                                                       |
-| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `node scripts/migrate-bilingual-content.mjs --check` (couverture + simulation)                                             | OK, 240 questions / 965 options / 240 explications / 645 justifications à 100 %, aucun document à mettre à jour sur le payload |
-| 40 questions par série et identifiants identiques aux seeds                                                                | OK (`src/tests/i18n-content.test.ts`)                                                                                          |
-| Bonnes réponses et scores inchangés dans les deux langues                                                                  | OK (`correct_option_ids` non modifiés ; test de résolution FR/EN)                                                              |
-| Repli français + indicateur de traduction manquante                                                                        | OK (tests unitaires et rendu)                                                                                                  |
-| Changement de langue pendant une tentative sans perte de réponses, marquages, notes, question courante ni compte à rebours | OK (`src/tests/i18n-exam.test.tsx`, `src/tests/i18n-exam-bilingual.test.tsx`)                                                  |
-| Pages de résultats et de correction en anglais                                                                             | OK (tests de rendu)                                                                                                            |
-| Suite i18n complète (`npm run test:i18n`)                                                                                  | 19 tests / 5 fichiers, tous verts                                                                                              |
-| `npx tsc --noEmit`                                                                                                         | Aucune nouvelle erreur par rapport à la base                                                                                   |
-| `npm run build` (configuration Vercel / Nitro)                                                                             | OK                                                                                                                             |
-| ESLint + Prettier sur les fichiers modifiés                                                                                | OK                                                                                                                             |
-| Versions TanStack corrigées conservées, aucun contrôle de sécurité désactivé                                               | OK (pas de changement de dépendances dans cette branche)                                                                       |
+Un document attendu manquant provoque un refus AVANT toute écriture. Le script
+ne crée jamais de document contenant uniquement des traductions. Une source
+française modifiée sans traduction anglaise revue est également signalée et
+bloque la migration. Les documents sont recherchés par identifiant stable.
 
-## 8. Limites connues
+La sauvegarde est obligatoire pour `--apply`, comporte le projet et la base cible
+et ne remplace jamais un fichier déjà présent. Chaque écriture est transactionnelle
+et refuse un document modifié depuis le calcul du plan. La migration n'est pas
+atomique sur l'ensemble des documents : en cas d'interruption, examiner l'état
+et refaire une simulation avec une nouvelle sauvegarde avant de reprendre.
+Les tentatives, réponses, événements et profils ne sont pas modifiés.
 
-- **Pas de vérification en navigateur réel dans cet environnement** : aucun
-  binaire Chrome/Chromium n'est disponible. La vérification s'appuie sur les
-  tests de rendu jsdom (React Testing Library) et le build de production. Une
-  passe manuelle sur un environnement de test est recommandée avant mise en
-  production (voir §9).
-- Les options de réponse **contenant du code ou des tableaux** ont été
-  traduites mot à mot en conservant le code, les identifiants, les valeurs
-  numériques et les blocs inchangés ; une relecture pédagogique par un formateur
-  certifié reste souhaitable.
-- La traduction anglaise a été produite à partir des textes français du dépôt,
-  avec la terminologie du syllabus ISTQB CTFL v4.0 (glossaire officiel). Aucune
-  version anglaise officielle équivalente des séries n'a pu être vérifiée comme
-  disponible et redistribuable ; **les droits de redistribution des énoncés
-  traduits doivent être confirmés** avant publication commerciale.
-- Points de vigilance sur le texte source, **non corrigés** (à arbitrer par
-  l'auteur du contenu) :
-  - Ensemble D : une question comporte 5 options alors que les autres en ont 4 ;
-    la traduction conserve ce nombre, sans le corriger.
-  - Certaines explications françaises mentionnent la lettre de l'option
-    (« la réponse B… ») ; le libellé des lettres est conservé tel quel, l'ordre
-    des options n'étant pas modifié.
-  - Les séries A et B n'ont pas de justification par option en français : le
-    champ `option_rationales_en` est donc absent pour elles (comportement
-    attendu, pas une traduction manquante).
+## Retour arrière
 
-## 9. Mise en production
+```bash
+# Conserver les mêmes variables de projet, de base et de clé.
+node scripts/migrate-bilingual-content.mjs --rollback backup-bilingue-v2.json
+```
 
-1. Fusionner la branche `feat/bilingual-content` (l'interface et les données
-   embarquées deviennent bilingues ; les tentatives existantes sont intactes).
-2. Définir les variables Firestore et lancer la simulation :
-   ```bash
-   FIREBASE_PROJECT_ID=... node scripts/migrate-bilingual-content.mjs --verbose
-   ```
-   Vérifier la liste des documents à mettre à jour et la couverture à 100 %.
-3. Sauvegarder puis appliquer :
-   ```bash
-   FIREBASE_PROJECT_ID=... node scripts/migrate-bilingual-content.mjs \
-     --apply --backup backup-bilingue.json
-   ```
-4. Contrôler en production : ouvrir une série, basculer en English pendant une
-   tentative (réponses et chrono préservés), terminer, puis vérifier les pages
-   Résultats et Correction en anglais.
-5. En cas de problème : `node scripts/migrate-bilingual-content.mjs --rollback
-backup-bilingue.json`, puis redéployer la révision précédente.
+Seuls les champs anglais écrits par la migration sont restaurés ou supprimés.
+Les modifications ultérieures des textes français, statuts ou paramètres sont
+préservées. Une traduction anglaise modifiée après migration bloque le rollback
+du document concerné. Un projet, une base ou un format de sauvegarde différent
+entraîne un refus. Les anciennes sauvegardes de documents entiers ne sont pas
+acceptées par ce retour arrière.
 
-Aucune migration SQL n'est nécessaire : le projet persiste via l'adaptateur
-Firestore (`src/integrations/supabase/mock-client.ts`), pas via Postgres.
+L'initialisation de l'application peut compléter à nouveau des traductions
+supprimées par rollback. Pour un retour arrière durable, redéployer aussi la
+révision précédente de l'application et arrêter les anciennes instances avant
+restauration. Un rollback de données n'est pas une garantie contre des écritures
+concurrentes d'autres applications.
+
+## Vérification après mise en ligne et limites
+
+Vérifier sur un environnement de test la bascule FR/EN pendant une tentative,
+la reprise après actualisation, puis les résultats et la correction. Vérifier
+aussi qu'un examen archivé et une question corrigée restent inchangés.
+
+Les tests automatisés utilisent des doubles Firestore, pas une base de production.
+Ils ne remplacent pas une passe dans un vrai navigateur ni la vérification des
+règles d'accès sur l'environnement cible. Les séries A et B ne contiennent pas de
+justifications par option en français ; leur absence anglaise est attendue.
+Les options, bonnes réponses et formulations françaises existantes ne sont pas
+corrigées dans cette intervention. Les droits de redistribution des contenus
+sources et des traductions restent à confirmer.

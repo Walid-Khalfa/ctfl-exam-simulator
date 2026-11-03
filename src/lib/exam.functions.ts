@@ -11,7 +11,7 @@ export const listDashboard = createServerFn({ method: "GET" })
     const { data: exams, error: eErr } = await supabase
       .from("exams")
       .select(
-        "id, title, description, language, duration_minutes, total_questions, passing_threshold, attempts_allowed, status",
+        "id, title, title_en, description, description_en, language, duration_minutes, total_questions, passing_threshold, attempts_allowed, status",
       )
       .eq("status", "published")
       .order("created_at", { ascending: true });
@@ -131,19 +131,19 @@ export const getAttemptState = createServerFn({ method: "GET" })
 
     const { data: exam } = await supabase
       .from("exams")
-      .select("id, title, language, duration_minutes, total_questions, passing_threshold")
+      .select("id, title, title_en, language, duration_minutes, total_questions, passing_threshold")
       .eq("id", attempt.exam_id)
       .single();
 
     const { data: questions } = await supabase
       .from("questions")
-      .select("id, position, chapter, k_level, type, points, learning_objective, text")
+      .select("id, position, chapter, k_level, type, points, learning_objective, text, text_en")
       .eq("exam_id", attempt.exam_id)
       .order("position", { ascending: true });
 
     const { data: options } = await supabase
       .from("question_options")
-      .select("id, question_id, position, label, text")
+      .select("id, question_id, position, label, text, text_en")
       .in(
         "question_id",
         (questions ?? []).map((q) => q.id),
@@ -320,7 +320,7 @@ export const getCorrection = createServerFn({ method: "GET" })
 
     const { data: questions } = await supabase
       .from("questions")
-      .select("id, position, chapter, k_level, type, learning_objective, text")
+      .select("id, position, chapter, k_level, type, learning_objective, text, text_en")
       .eq("exam_id", attempt.exam_id)
       .order("position", { ascending: true });
 
@@ -328,7 +328,7 @@ export const getCorrection = createServerFn({ method: "GET" })
 
     const { data: options } = await supabase
       .from("question_options")
-      .select("id, question_id, position, label, text")
+      .select("id, question_id, position, label, text, text_en")
       .in("question_id", qIds)
       .order("position", { ascending: true });
 
@@ -341,13 +341,16 @@ export const getCorrection = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: solutions } = await supabaseAdmin
       .from("question_solutions")
-      .select("question_id, correct_option_ids, explanation")
+      .select(
+        "question_id, correct_option_ids, explanation, explanation_en, option_rationales, option_rationales_en",
+      )
       .in("question_id", qIds);
 
     const ansMap = new Map((answers ?? []).map((a) => [a.question_id, a]));
     type SolutionRow = {
       correct_option_ids?: string[];
       explanation?: string;
+      explanation_en?: string;
       option_rationales?: Record<string, string>;
       option_rationales_en?: Record<string, string>;
     };
@@ -366,6 +369,7 @@ export const getCorrection = createServerFn({ method: "GET" })
           isCorrect: ans?.is_correct === true,
           correctOptionIds: sol?.correct_option_ids ?? [],
           explanation: sol?.explanation ?? "",
+          explanation_en: sol?.explanation_en ?? "",
           option_rationales: sol?.option_rationales ?? {},
           option_rationales_en: sol?.option_rationales_en ?? {},
         };
