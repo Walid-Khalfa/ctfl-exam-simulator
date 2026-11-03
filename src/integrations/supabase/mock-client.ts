@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Fully functional Firebase Firestore & Auth adapter masquerading as Supabase client.
 // This allows the app to migrate from Supabase to Firebase without modifying 100+ DB call sites.
+import { englishFieldsToAdd } from "@/lib/bilingual-fields";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { SEED_EXAMS, SEED_OPTIONS, SEED_QUESTIONS, SEED_SOLUTIONS } from "./seed-payload";
 import {
@@ -10,6 +11,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  runTransaction,
   deleteDoc,
   query,
   where,
@@ -48,27 +50,11 @@ const TRANSLATED_TABLES = ["exams", "questions", "question_options", "question_s
 
 type TranslatedTable = (typeof TRANSLATED_TABLES)[number];
 
-function englishFieldsOf(table: TranslatedTable, record: any): Record<string, unknown> {
-  const fields: Record<string, unknown> = {};
-  const assign = (key: string) => {
-    if (record[key] !== undefined) fields[key] = record[key];
-  };
-  if (table === "exams") {
-    assign("title_en");
-    assign("description_en");
-  } else if (table === "question_solutions") {
-    assign("explanation_en");
-    assign("option_rationales_en");
-  } else {
-    assign("text_en");
-  }
-  return fields;
-}
-
 /**
  * Copies the English content of the current seeds onto already-persisted records.
  * Idempotent and non-destructive: only the `*_en` fields are written, and only
- * when they are absent or outdated. Attempts, answers and results are untouched.
+ * when they are absent and their French source is unchanged. Existing English,
+ * attempts, answers and results are untouched.
  */
 function mergeEnglishIntoCache(table: TranslatedTable, cached: any[]): any[] {
   const seedById = new Map<string, any>();
@@ -78,12 +64,8 @@ function mergeEnglishIntoCache(table: TranslatedTable, cached: any[]): any[] {
   return cached.map((item) => {
     const seed = seedById.get(item.id ?? item.question_id);
     if (!seed) return item;
-    const english = englishFieldsOf(table, seed);
-    let changed = false;
-    for (const [key, value] of Object.entries(english)) {
-      if (JSON.stringify(item[key]) !== JSON.stringify(value)) changed = true;
-    }
-    return changed ? { ...item, ...english } : item;
+    const english = englishFieldsToAdd(table, seed, item);
+    return Object.keys(english).length ? { ...item, ...english } : item;
   });
 }
 
@@ -150,175 +132,70 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = getFirestore(app, firebaseConfig.databaseId);
 export const auth = getAuth(app);
 
-// Seeding implementation
-let seedingInProgress = false;
+// One shared initialization promise: concurrent readers wait for the same work.
+let seedingPromise: Promise<void> | undefined;
 let seeded = false;
 
 async function ensureSeeded() {
-  if (seeded || seedingInProgress) return;
-  seedingInProgress = true;
-  try {
-    // Delete the old exam (EXAM_ID) if it exists, along with its questions, options and solutions
-    try {
-      const oldExamRef = doc(db, "exams", EXAM_ID);
-      const oldExamSnap = await getDoc(oldExamRef);
-      if (oldExamSnap.exists()) {
-        console.log(`[Firebase] Cleaning up old exam (EXAM_ID)...`);
-        await deleteDoc(oldExamRef);
+  if (seeded) return;
+  if (!seedingPromise) {
+    seedingPromise = seedMissingContent()
+      .then(() => {
+        seeded = true;
+      })
+      .finally(() => {
+        seedingPromise = undefined;
+      });
+  }
+  await seedingPromise;
+}
 
-        const oldQuestions = ["q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10"];
-        for (const qId of oldQuestions) {
-          await deleteDoc(doc(db, "questions", qId));
-          await deleteDoc(doc(db, "question_solutions", qId));
+async function seedMissingContent() {
+  const sources = {
+    exams: SEED_EXAMS,
+    questions: SEED_QUESTIONS,
+    question_options: SEED_OPTIONS,
+    question_solutions: SEED_SOLUTIONS,
+  };
+  const snapshots = await Promise.all(
+    TRANSLATED_TABLES.map((table) => getDocs(collection(db, table))),
+  );
+  const records = new Map<string, Map<string, any>>();
+  TRANSLATED_TABLES.forEach((table, index) => {
+    const rows = new Map<string, any>();
+    snapshots[index].forEach((snap) => rows.set(snap.id, snap.data()));
+    records.set(table, rows);
+  });
+  const newExams = new Set(
+    SEED_EXAMS.filter((exam) => !records.get("exams")!.has(exam.id)).map((exam) => exam.id),
+  );
+  const examByQuestion = new Map(SEED_QUESTIONS.map((q) => [q.id, q.exam_id]));
+  for (const table of TRANSLATED_TABLES) {
+    for (const source of sources[table]) {
+      const record = source as any;
+      const id = record.id ?? record.question_id;
+      const current = records.get(table)!.get(id);
+      const examId =
+        table === "exams"
+          ? id
+          : table === "questions"
+            ? record.exam_id
+            : examByQuestion.get(record.question_id);
+      // Missing children of an existing exam may have been intentionally deleted.
+      // Never resurrect them or recreate partial translation-only documents.
+      if (!current && !newExams.has(examId)) continue;
+      if (current && !Object.keys(englishFieldsToAdd(table, record, current)).length) continue;
+      const ref = doc(db, table, id);
+      await runTransaction(db, async (transaction) => {
+        const latest = await transaction.get(ref);
+        if (!latest.exists()) {
+          if (!current && newExams.has(examId)) transaction.set(ref, record);
+          return;
         }
-
-        const oldOptions = [
-          "q1-a",
-          "q1-b",
-          "q1-c",
-          "q1-d",
-          "q2-a",
-          "q2-b",
-          "q2-c",
-          "q2-d",
-          "q3-a",
-          "q3-b",
-          "q3-c",
-          "q3-d",
-          "q4-a",
-          "q4-b",
-          "q4-c",
-          "q4-d",
-          "q5-a",
-          "q5-b",
-          "q5-c",
-          "q5-d",
-          "q6-a",
-          "q6-b",
-          "q6-c",
-          "q6-d",
-          "q7-a",
-          "q7-b",
-          "q7-c",
-          "q7-d",
-          "q8-a",
-          "q8-b",
-          "q8-c",
-          "q8-d",
-          "q9-a",
-          "q9-b",
-          "q9-c",
-          "q9-d",
-          "q10-a",
-          "q10-b",
-          "q10-c",
-          "q10-d",
-        ];
-        for (const optId of oldOptions) {
-          await deleteDoc(doc(db, "question_options", optId));
-        }
-        console.log(`[Firebase] Old exam cleaned up successfully.`);
-      }
-    } catch (cleanupErr) {
-      console.error("[Firebase] Error cleaning up old exam:", cleanupErr);
+        const patch = englishFieldsToAdd(table, record, latest.data());
+        if (Object.keys(patch).length) transaction.update(ref, patch);
+      });
     }
-
-    for (const exam of SEED_EXAMS) {
-      const examDocRef = doc(db, "exams", exam.id);
-      const snap = await getDoc(examDocRef);
-
-      let needsSeeding = !snap.exists();
-      if (snap.exists()) {
-        try {
-          const qList = SEED_QUESTIONS.filter((q) => q.exam_id === exam.id);
-          const qIds = qList.map((q) => q.id);
-
-          const qSnap = await getDocs(
-            query(collection(db, "questions"), where("exam_id", "==", exam.id)),
-          );
-          const dbQLen = qSnap.size;
-
-          const optList = SEED_OPTIONS.filter((opt) => qIds.includes(opt.question_id));
-
-          let lastSolExists = false;
-          let lastOptExists = false;
-
-          if (qIds.length > 0) {
-            const lastQId = qIds[qIds.length - 1];
-            const lastSolSnap = await getDoc(doc(db, "question_solutions", lastQId));
-            const lastOptSnap = await getDoc(
-              doc(db, "question_options", optList[optList.length - 1].id),
-            );
-            lastSolExists = lastSolSnap.exists();
-            lastOptExists = lastOptSnap.exists();
-          }
-
-          if (dbQLen !== qList.length) {
-            needsSeeding = true;
-          } else if (qIds.length > 0) {
-            if (!lastSolExists || !lastOptExists) {
-              needsSeeding = true;
-            }
-          }
-
-          // Translations were added after the first release: existing documents
-          // must be refreshed so the English content reaches production data.
-          if (!needsSeeding) {
-            const examSnap = snap.data() as any;
-            if (!examSnap?.title_en) needsSeeding = true;
-            else if (qIds.length > 0) {
-              const lastQId = qIds[qIds.length - 1];
-              const lastSolSnap = await getDoc(doc(db, "question_solutions", lastQId));
-              const solData = lastSolSnap.data() as any;
-              if (!solData?.explanation_en) needsSeeding = true;
-              else {
-                const lastOptId = optList[optList.length - 1].id;
-                const lastOptSnap = await getDoc(doc(db, "question_options", lastOptId));
-                if (!(lastOptSnap.data() as any)?.text_en) needsSeeding = true;
-              }
-              const firstQSnap = await getDoc(doc(db, "questions", qIds[0]));
-              if (!(firstQSnap.data() as any)?.text_en) needsSeeding = true;
-            }
-          }
-        } catch (checkErr) {
-          console.warn(
-            `[Firebase] Failed to check integrity for exam ${exam.id}, forcing re-seed:`,
-            checkErr,
-          );
-          needsSeeding = true;
-        }
-      }
-
-      if (needsSeeding) {
-        console.log(`[Firebase] Seeding exam ${exam.title}...`);
-        await setDoc(examDocRef, exam);
-
-        // Seed Questions for this exam
-        const qList = SEED_QUESTIONS.filter((q) => q.exam_id === exam.id);
-        for (const q of qList) {
-          await setDoc(doc(db, "questions", q.id), q);
-        }
-
-        // Seed Options for these questions
-        const qIds = qList.map((q) => q.id);
-        const optList = SEED_OPTIONS.filter((opt) => qIds.includes(opt.question_id));
-        for (const opt of optList) {
-          await setDoc(doc(db, "question_options", opt.id), opt);
-        }
-
-        // Seed Solutions for these questions
-        const solList = SEED_SOLUTIONS.filter((sol) => qIds.includes(sol.question_id));
-        for (const sol_item of solList) {
-          await setDoc(doc(db, "question_solutions", sol_item.question_id), sol_item);
-        }
-        console.log(`[Firebase] Seeded exam ${exam.title} successfully.`);
-      }
-    }
-    seeded = true;
-  } catch (e) {
-    console.error("[Firebase] Error seeding database:", e);
-  } finally {
-    seedingInProgress = false;
   }
 }
 

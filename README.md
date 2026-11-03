@@ -157,8 +157,9 @@ migration (simulation by default) described in
 
 ```bash
 node scripts/migrate-bilingual-content.mjs --check
-FIREBASE_PROJECT_ID=... node scripts/migrate-bilingual-content.mjs \
-  --apply --backup backup-bilingue.json
+# Configure FIREBASE_PROJECT_ID, FIREBASE_DATABASE_ID and FIREBASE_API_KEY first.
+node scripts/migrate-bilingual-content.mjs --verbose
+node scripts/migrate-bilingual-content.mjs --apply --backup backup-bilingue-v2.json
 ```
 
 Run `npm run test:i18n` for dictionary parity, persistence, SSR isolation,
